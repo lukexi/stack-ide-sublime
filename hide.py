@@ -27,6 +27,12 @@ class IdeBackendSaveListener(sublime_plugin.EventListener):
             ]
             }
         view.window().run_command("send_ide_backend_request", {"request":request})
+        request = { "request": "getSourceErrors" }
+        view.window().run_command("send_ide_backend_request", {"request":request})
+
+class IdeBackendAutocompleteHandler(sublime_plugin.EventListener):
+    def on_query_completions(self, view, prefix, locations):
+      print("Please autocomplete: " + prefix)
 
 class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
     """
@@ -43,13 +49,16 @@ class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
         super(SendIdeBackendRequestCommand, self).__init__(window)
         self.boot_ide_backend()
 
+    def first_folder(self):
+      return self.window.folders()[0]
+
     def boot_ide_backend(self):
-      firstFolder = self.window.folders()[0]
-      print("Launching Hide in " + firstFolder)
+      
+      print("Launching Hide in " + self.first_folder())
 
       self.process = subprocess.Popen(["/Users/lukexi/.cabal/bin/ide-backend-client", "cabal", "."],
          stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-         cwd=firstFolder
+         cwd=self.first_folder()
          )
       
       self.stdoutThread = threading.Thread(target=self.read_stdout)
@@ -61,14 +70,39 @@ class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
                 data = json.loads(self.process.stdout.readline().decode('UTF-8'))
                 
                 # print(json.loads(data))
-                if data.get("progress"):
+                progress = data.get("progress")
+                response = data.get("response")
+                if progress:
                   sublime.status_message(data["progress"]["parsedMsg"])
+                elif response == "getSourceErrors":
+                  errors = data.get("errors")
+                  if errors:
+                    sublime.set_timeout(lambda: self.highlight_errors(errors), 0)
                 
             except:
-                print("process ending due to exception...")
+                print("process ending due to exception:", str(sys.exc_info()[0]))
                 # sublime.set_timeout(self.boot_ide_backend, 0)
                 return;
         print("process ended...")
+
+    def highlight_errors(self, errors):
+      for error in errors:
+        msg = error.get("msg")
+        span = error.get("span")
+        kind = error.get("kind")
+        if span:
+          file_path   = span.get("filePath")
+          from_line   = span.get("fromLine")
+          from_column = span.get("fromColumn")
+          to_line     = span.get("toLine")
+          to_column   = span.get("toColumn")
+          full_path   = self.first_folder() + "/" + file_path
+          file_view   = self.window.find_open_file(full_path)
+          if file_view:
+            from_region = file_view.text_point(from_line - 1, from_column - 1)
+            to_region   = file_view.text_point(to_line - 1, to_column - 1)
+            region      = sublime.Region(from_region, to_region)
+            file_view.add_regions("errors", [region], "invalid", "dot", sublime.DRAW_OUTLINED)
 
     def run(self, request):
         """
