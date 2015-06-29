@@ -63,14 +63,21 @@ class IdeBackendAutocompleteHandler(sublime_plugin.EventListener):
         self.returned_completions = []
 
     def on_query_completions(self, view, prefix, locations):
-        request = {
-            "request":"getAutocompletion", 
-            "autocomplete": {
-                "filePath": relative_view_file_name(view), 
-                "prefix": prefix
-                } 
-            }
-        send_request(view, request)
+        # Check if this completion query is due to our refreshing the completions list
+        # after receiving a response from ide-backend-client, and if so, don't send
+        # another request for completions.
+        if not view.settings().get("refreshing_auto_complete"):
+            request = {
+                "request":"getAutocompletion", 
+                "autocomplete": {
+                    "filePath": relative_view_file_name(view), 
+                    "prefix": prefix
+                    } 
+                }
+            send_request(view, request)
+
+        # Clear the flag to uninhibit future completion queries
+        view.settings().set("refreshing_auto_complete", False)
 
         # Sublime Text 3 expects completions in the form of [(annotation, name)],
         # where annotation is <name>\t<hint1>\t<hint2>
@@ -102,11 +109,29 @@ class IdeBackendAutocompleteHandler(sublime_plugin.EventListener):
             return None
         completions = args.get("completions")
         if command_name == "update_completions" and completions:
-            print("INTERCEPTED:")
-            print(completions)
-
-            print()
+            print("INTERCEPTED:\n " + str(completions) + "\n")
+            
             self.returned_completions = completions
+
+            # Hide the auto_complete popup so we can reopen it, 
+            # triggering a new on_query_completions
+            # call to pickup our new self.returned_completions.
+            window.active_view().run_command('hide_auto_complete')
+
+            def reactivate():
+                # We read this in on_query_completions to prevent sending a duplicate
+                # request for completions when we're only trying to re-trigger the completions
+                # popup; otherwise we get an infinite loop of 
+                #   autocomplete > request completions > receive response > close/reopen to refresh 
+                # > autocomplete > request completions > etc.
+                window.active_view().settings().set("refreshing_auto_complete", True)
+                window.active_view().run_command('auto_complete', {
+                        'disable_auto_insert': True,
+                        # 'api_completions_only': True,
+                        'next_competion_if_showing': False
+                    })
+            # Wait one runloop before reactivating, to give the hide command a chance to finish
+            sublime.set_timeout(reactivate, 0)
         return None
 
 class UpdateCompletionsCommand(sublime_plugin.WindowCommand):
