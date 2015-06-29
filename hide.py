@@ -52,8 +52,17 @@ class IdeBackendAutocompleteHandler(sublime_plugin.EventListener):
             }
         send_request(view, request)
         # print("Returning: " + str(self.returnedCompletions))
-        print("Returning: " + str([(x, x) for x in self.returnedCompletions]))
-        return [(x, x) for x in self.returnedCompletions]
+
+        def string_from_completion(completion):
+            return "\t".join(
+                filter(lambda x: x is not None, 
+                    map(completion.get, 
+                        ["name", "definedIn", "type"])))
+
+        completion_strings = map(string_from_completion, self.returnedCompletions)
+        annotated_completions = [(x, x) for x in completion_strings]
+        print("Returning: " + str(annotated_completions))
+        return annotated_completions
 
     def on_window_command(self, window, command_name, args):
         if args == None:
@@ -64,7 +73,7 @@ class IdeBackendAutocompleteHandler(sublime_plugin.EventListener):
             print(completions)
 
             print()
-            self.returnedCompletions = list(map(lambda x:x.get("name"), completions))
+            self.returnedCompletions = completions
         return None
 
 class UpdateCompletionsCommand(sublime_plugin.WindowCommand):
