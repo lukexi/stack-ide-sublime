@@ -6,21 +6,38 @@ import time
 import json
 
 def first_folder(window):
+    """
+    We only support running one ide-backend-client instance per window currently,
+    on the first folder open in that window.
+    """
     return window.folders()[0]
 
 def relative_view_file_name(view):
+    """
+    ide-backend expects file names as relative to the cabal project root
+    """
     return view.file_name().replace(first_folder(view.window()) + "/", "")
 
 
 class ClearErrorPanelCommand(sublime_plugin.TextCommand):
+    """
+    A clear_error_panel command to clear the error panel.
+    """
     def run(self, edit, errors):
         self.view.erase(edit, Region(0, self.view.size()))
 
 class UpdateErrorPanelCommand(sublime_plugin.TextCommand):
+    """
+    An update_error_panel command to append text to the error panel.
+    """
     def run(self, edit, errors):
-        self.view.insert(edit, 0, str(errors) + "\n\n")
+        self.view.insert(edit, self.view.size(), str(errors) + "\n\n")
 
 class IdeBackendSaveListener(sublime_plugin.EventListener):
+    """
+    Ask ide-backend-client to recompile the saved source file, 
+    then request a report of source errors.
+    """
     def on_post_save(self, view):
         request = {
             "request":"updateSession",
@@ -34,6 +51,9 @@ class IdeBackendSaveListener(sublime_plugin.EventListener):
         send_request(view, { "request": "getSourceErrors" })
 
 def send_request(view, request):
+    """
+    Call the view's window's SendIdeBackendRequestCommand instance with the given request.
+    """
     view.window().run_command("send_ide_backend_request", {"request":request})
 
 class IdeBackendAutocompleteHandler(sublime_plugin.EventListener):
@@ -51,13 +71,16 @@ class IdeBackendAutocompleteHandler(sublime_plugin.EventListener):
                 } 
             }
         send_request(view, request)
-        # print("Returning: " + str(self.returned_completions))
 
+        # Sublime Text 3 expects completions in the form of [(annotation, name)],
+        # where annotation is <name>\t<hint1>\t<hint2>
+        # where hint1/hint2/etc. are optional auxiliary information that will
+        # be displayed in italics to the right of the name.
         def annotation_from_completion(completion):
             return "\t".join(
                 filter(lambda x: x is not None, 
                     map(completion.get, 
-                        ["name", "definedIn", "type"])))
+                        ["name", "type", "definedIn"])))
 
         annotations = map(annotation_from_completion, self.returned_completions)
         names       = map(lambda x: x.get("name"),    self.returned_completions)
@@ -66,7 +89,15 @@ class IdeBackendAutocompleteHandler(sublime_plugin.EventListener):
         print("Returning: " + str(annotated_completions))
         return list(annotated_completions)
 
+
     def on_window_command(self, window, command_name, args):
+        """
+        Implements a hacky way of returning data to the IdeBackendAutocompleteHandler instance,
+        wherein SendIdeBackendRequestCommand calls a update_completions command on the window,
+        which is really just a dummy command that we intercept here in order to assign the resulting
+        completions to returned_completions to then, finally, return the next time on_query_completions
+        is called.
+        """
         if args == None:
             return None
         completions = args.get("completions")
@@ -130,6 +161,10 @@ class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
         print("process ended...")
 
     def read_stdout(self):
+        """
+        Reads JSON responses from ide-backend-client and dispatch them to
+        various main thread handlers.
+        """
         while self.process.poll() is None:
             try:
                 raw = self.process.stdout.readline().decode('UTF-8')
@@ -139,14 +174,21 @@ class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
                 # print(data)
                 progress = data.get("progress")
                 response = data.get("response")
+
+                # Pass progress messages to the status bar
                 if progress:
                     progressMessage = progress.get("parsedMsg")
                     if progressMessage:
                         sublime.status_message(progressMessage)
+
+                # Pass autocompletion responses to the completions handler
+                # (via our window command hack - see note in on_window_command)
                 elif response == "getAutocompletion":
                     completions = data.get("completions")
                     if completions != None:
                         sublime.set_timeout(lambda: self.update_completions(completions), 0)
+
+                # Pass source error responses to the error highlighter
                 elif response == "getSourceErrors":
                     errors = data.get("errors")
                     if errors:
@@ -162,10 +204,12 @@ class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
         print("process ended...")
 
     def update_completions(self, completions):
-        print(completions)
         self.window.run_command("update_completions", {"completions":completions})
 
     def highlight_errors(self, errors):
+        """
+        Places errors in the error panel, and highlights the relevant regions for each error.
+        """
         error_panel = self.window.create_output_panel("hide_errors")
         # error_panel.set_read_only(True)
         # error_panel.set_scratch(True)
@@ -212,5 +256,5 @@ def regionFromJSON(span, window):
     if file_view:
         from_point = file_view.text_point(from_line - 1, from_column - 1)
         to_point   = file_view.text_point(to_line   - 1, to_column   - 1)
-        region      = sublime.Region(from_point, to_point)
+        region     = sublime.Region(from_point, to_point)
         return (region, file_view)
