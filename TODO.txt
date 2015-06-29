@@ -5,6 +5,8 @@
     See here for Sublime Text API:
     https://www.sublimetext.com/forum/viewtopic.php?f=2&t=17583&start=40
 
+    (maybe just use an "info" panel for this?)
+
     See here for ide-backend-client API:
     https://github.com/chrisdone/ide-backend-client/tree/master/ide-backend-client
 
