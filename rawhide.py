@@ -5,6 +5,34 @@ import threading
 import time
 import json
 
+# Devel util
+# Ensure existing processes are killed when we 
+# save the plugin to prevent proliferation of 
+# ide-backend-client session.13953 folders
+rawhide_processes = []
+
+def plugin_loaded():
+    print("Rawhide loaded.")
+    
+def plugin_unloaded():
+    global rawhide_processes
+    kill_all_processes()
+
+def kill_all_processes():
+    global rawhide_processes
+    print("Killing all Rawhide instances: " + str(rawhide_processes))
+    for process in rawhide_processes:
+        process.end()
+    rawhide_processes = []
+
+def register_process(process):
+    global rawhide_processes
+    if not rawhide_processes:
+        rawhide_processes = []
+    rawhide_processes += [process]
+    print(rawhide_processes)
+# End devel util
+
 def first_folder(window):
     """
     We only support running one ide-backend-client instance per window currently,
@@ -149,10 +177,10 @@ class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
     the class executes when called, i.e. send_ide_backend_request)
     """
 
-    backendsByWindow = {}
-
     def __init__(self, window):
         super(SendIdeBackendRequestCommand, self).__init__(window)
+        register_process(self)
+
         self.boot_ide_backend()
         
         self.run({ "request": "getSourceErrors" })
@@ -161,21 +189,22 @@ class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
         """
         Start up a ide-backend-client subprocess for the window, and a thread to consume its stdout.
         """
-        print("Launching HIDE in " + first_folder(self.window))
-        print("Backends by window: " + str(self.backendsByWindow))
-        self.backendsByWindow[self.window.id()] = "Hi!"
- 
+        print("Launching HIDE in " + first_folder(self.window)) 
  
         self.process = subprocess.Popen(["/Users/lukexi/.cabal/bin/ide-backend-client", "cabal", "."],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             cwd=first_folder(self.window)
             )
         
+        
         self.stdoutThread = threading.Thread(target=self.read_stdout)
         self.stdoutThread.start()
         
         # self.stderrThread = threading.Thread(target=self.read_stderr)
         # self.stderrThread.start()
+
+    def end(self):
+        self.run({"request":"shutdownSession"})
 
     def run(self, request):
         """
@@ -289,8 +318,6 @@ class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
 
 
         error_panel.set_read_only(True)
-
-    
 
     def __del__(self):
         if self.process:

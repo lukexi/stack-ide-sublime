@@ -6,6 +6,9 @@ The official, but super incomplete, API reference:
 
 http://www.sublimetext.com/docs/3/api_reference.html
 
+Docs on many hidden APIs:
+http://www.sublimetext.com/3   (for ST3+)
+http://www.sublimetext.com/dev (for ST2 development)
 
 Documentation for the autocomplete API:
 
