@@ -23,8 +23,8 @@ class ClearErrorPanelCommand(sublime_plugin.TextCommand):
     """
     A clear_error_panel command to clear the error panel.
     """
-    def run(self, edit, errors):
-        self.view.erase(edit, Region(0, self.view.size()))
+    def run(self, edit):
+        self.view.erase(edit, sublime.Region(0, self.view.size()))
 
 class UpdateErrorPanelCommand(sublime_plugin.TextCommand):
     """
@@ -129,10 +129,12 @@ class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
     def __init__(self, window):
         super(SendIdeBackendRequestCommand, self).__init__(window)
         self.boot_ide_backend()
+        
+        self.run({ "request": "getSourceErrors" })
 
     def boot_ide_backend(self):
         """
-        Start up a ide-backend-client subprocess for the window, and a thread to consume its stdout
+        Start up a ide-backend-client subprocess for the window, and a thread to consume its stdout.
         """
         print("Launching HIDE in " + first_folder(self.window))
         print("Backends by window: " + str(self.backendsByWindow))
@@ -149,6 +151,17 @@ class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
         
         # self.stderrThread = threading.Thread(target=self.read_stderr)
         # self.stderrThread.start()
+
+    def run(self, request):
+        """
+        Pass a request to ide-backend-client.
+        Called via run_command("send_ide_backend_request", {"request":})
+        """
+        if self.process:
+            print("SENDING " + str(request))
+            encodedString = json.JSONEncoder().encode(request) + "\n"
+            self.process.stdin.write(bytes(encodedString, 'UTF-8'))
+            self.process.stdin.flush()
 
     def read_stderr(self):
         while self.process.poll() is None:
@@ -191,7 +204,7 @@ class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
                 # Pass source error responses to the error highlighter
                 elif response == "getSourceErrors":
                     errors = data.get("errors")
-                    if errors:
+                    if errors != None:
                         sublime.set_timeout(lambda: self.highlight_errors(errors), 0)
                 else:
                     print(data)
@@ -211,39 +224,55 @@ class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
         Places errors in the error panel, and highlights the relevant regions for each error.
         """
         error_panel = self.window.create_output_panel("hide_errors")
-        # error_panel.set_read_only(True)
-        # error_panel.set_scratch(True)
+        error_panel.set_read_only(False)
+        
+        # Seems to force the panel to refresh after we clear it:
+        self.window.run_command("hide_panel", {"panel":"output.hide_errors"})
+        # Clear the panel
         error_panel.run_command("clear_error_panel")
-        self.window.run_command("show_panel", {"panel":"output.hide_errors"})
 
+        # Gather each error by the file view it should annotate
+        errors_by_view_id = {}
         for error in errors:
             msg = error.get("msg")
             error_panel.run_command("update_error_panel", {"errors":msg})
             span = error.get("span")
             # kind = error.get("kind")
-            regionAndFileView = regionFromJSON(span, self.window)
-            print(str(regionAndFileView))
-            if regionAndFileView:
-                (region, file_view) = regionAndFileView
-                print("Adding error at "+ str(span) +": " + str(msg))
-                file_view.add_regions(str(region), [region], "invalid", "dot", sublime.DRAW_OUTLINED)
+            view_and_region = view_region_from_json_span(span, self.window)
 
-    def run(self, request):
-        """
-        Called via run_command("send_ide_backend_request", {"request":})
-        """
-        if self.process:
-            print("SENDING " + str(request))
-            encodedString = json.JSONEncoder().encode(request) + "\n"
-            self.process.stdin.write(bytes(encodedString, 'UTF-8'))
-            self.process.stdin.flush()
+            if view_and_region:
+                (view_for_error, region) = view_and_region
+
+                print("Adding error at "+ str(span) +": " + str(msg))
+
+                error_regions_for_view = errors_by_view_id.get(view_for_error.id(), [])
+                error_regions_for_view += [region]
+                errors_by_view_id[view_for_error.id()] = error_regions_for_view
+
+        # Add error regions to their respective views
+        for view in self.window.views():
+            # Return an empty list if there are no errors for the view, so that we clear the error regions
+            error_regions = errors_by_view_id.get(view.id(), [])
+            view.add_regions("errors", error_regions, "invalid", "dot", sublime.DRAW_OUTLINED)
+                
+        if errors:
+            # Show the panel
+            self.window.run_command("show_panel", {"panel":"output.hide_errors"})
+        else:
+            # Hide the panel
+            self.window.run_command("hide_panel", {"panel":"output.hide_errors"})
+
+
+        error_panel.set_read_only(True)
+
+    
 
     def __del__(self):
         if self.process:
             self.process.terminate()
             self.process = None
 
-def regionFromJSON(span, window):
+def view_region_from_json_span(span, window):
     if span == None:
         return None
     file_path    = span.get("filePath")
@@ -252,9 +281,9 @@ def regionFromJSON(span, window):
     to_line      = span.get("toLine")
     to_column    = span.get("toColumn")
     full_path    = first_folder(window) + "/" + file_path
-    file_view    = window.find_open_file(full_path)
-    if file_view:
-        from_point = file_view.text_point(from_line - 1, from_column - 1)
-        to_point   = file_view.text_point(to_line   - 1, to_column   - 1)
+    view         = window.find_open_file(full_path)
+    if view:
+        from_point = view.text_point(from_line - 1, from_column - 1)
+        to_point   = view.text_point(to_line   - 1, to_column   - 1)
         region     = sublime.Region(from_point, to_point)
-        return (region, file_view)
+        return (view, region)

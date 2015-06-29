@@ -1,0 +1,26 @@
+General plugin info:
+http://docs.sublimetext.info/en/latest/extensibility/plugins.html
+
+
+The official, but super incomplete, API reference:
+
+http://www.sublimetext.com/docs/3/api_reference.html
+
+
+Documentation for the autocomplete API:
+
+http://sublime-text-unofficial-documentation.readthedocs.org/en/latest/reference/api.html#sublime_plugin.EventListener.on_query_completions
+
+Documents the trigger/contents pair for annotating completions with \t
+http://sublime-text-unofficial-documentation.readthedocs.org/en/latest/reference/completions.html#completions-trigger-based
+
+
+
+
+
+Documentation for the HTML tooltip API:
+https://www.sublimetext.com/forum/viewtopic.php?f=2&t=17583&start=40
+
+
+Views have a "settings" property, which can be used for stashing data.
+view.settings().set("custom_id", uuid.uuid4())

@@ -1,0 +1,6 @@
+[ ] Implement tooltips for type and doc information.
+    See here for API:
+    https://www.sublimetext.com/forum/viewtopic.php?f=2&t=17583&start=40
+
+[ ] Completions are asynchronous, so we only see them if we type e.g. f<delete>f or on the second letter.
+    See if we can re-trigger the completion list once the completions arrive.
