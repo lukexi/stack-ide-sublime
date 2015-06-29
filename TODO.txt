@@ -2,11 +2,27 @@
 
 
 [ ] Implement tooltips for type and doc information.
-    See here for API:
+    See here for Sublime Text API:
     https://www.sublimetext.com/forum/viewtopic.php?f=2&t=17583&start=40
+
+    See here for ide-backend-client API:
+    https://github.com/chrisdone/ide-backend-client/tree/master/ide-backend-client
+
+
+
+
+
 
 
 
 DONE:
+
 [x] Completions are asynchronous, so we only see them if we type e.g. f<delete>f or on the second letter.
     See if we can re-trigger the completion list once the completions arrive.
+
+
+[x] Implement getExpTypes to just follow the cursor around and place the type in the status bar?
+    To complement the larger getSpanInfo above.
+    Need to ensure it's persistent enough and maybe log it to a buffer too for copy-pasteability
+    (Oh, we can probably use the status flag API for the persistence part)
+

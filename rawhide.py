@@ -84,6 +84,34 @@ def send_request(view, request):
     """
     view.window().run_command("send_ide_backend_request", {"request":request})
 
+def span_from_view_selection(view):
+    return span_from_view_region(view, view.sel()[0])
+
+def span_from_view_region(view, region):
+    (from_line, from_col) = view.rowcol(region.begin())
+    (to_line,   to_col)   = view.rowcol(region.end())
+    return {
+        "filePath": relative_view_file_name(view),
+        "fromLine": from_line + 1,
+        "fromColumn": to_col + 1,
+        "toLine": to_line + 1,
+        "toColumn": to_col + 1
+        }
+
+def module_name_for_view(view):
+    module_name = view.substr(view.find("^module [A-Za-z._]*", 0)).replace("module ", "")
+    return module_name
+
+class IdeBackendTypeAtCursorHandler(sublime_plugin.EventListener):
+    def on_selection_modified(self, view):
+        print(view.scope_name(view.sel()[0].begin()))
+        request = { 
+            "request": "getExpTypes", 
+            "module": module_name_for_view(view), 
+            "span": span_from_view_selection(view)
+            }
+        send_request(view, request)        
+
 class IdeBackendAutocompleteHandler(sublime_plugin.EventListener):
 
     def __init__(self):
@@ -120,9 +148,9 @@ class IdeBackendAutocompleteHandler(sublime_plugin.EventListener):
         annotations = map(annotation_from_completion, self.returned_completions)
         names       = map(lambda x: x.get("name"),    self.returned_completions)
 
-        annotated_completions = zip(annotations, names)
+        annotated_completions = list(zip(annotations, names))
         print("Returning: " + str(annotated_completions))
-        return list(annotated_completions)
+        return annotated_completions
 
 
     def on_window_command(self, window, command_name, args):
@@ -260,6 +288,10 @@ class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
                     errors = data.get("errors")
                     if errors != None:
                         sublime.set_timeout(lambda: self.highlight_errors(errors), 0)
+                elif response == "getExpTypes":
+                    types = data.get("info")
+                    if types != None:
+                        sublime.set_timeout(lambda: self.highlight_type(types), 0)
                 else:
                     print(data)
                 
@@ -272,6 +304,27 @@ class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
 
     def update_completions(self, completions):
         self.window.run_command("update_completions", {"completions":completions})
+
+    def highlight_type(self, types):
+        """
+        ide-backend gives us a wealth of type info for the cursor. We only use the first,
+        most specifc one for now, but it gives us the types all the way out to the topmost
+        expression.
+        """
+        if types:
+            first_type = types[0]
+            span = first_type.get("span")
+            view_and_region = view_region_from_json_span(span, self.window)
+            if view_and_region:
+                (view, region) = view_and_region
+                type_string = first_type.get("type", "")
+                view.set_status("type_at_cursor", type_string)
+                view.add_regions("type_at_cursor", [region], "storage.type", "", sublime.DRAW_OUTLINED)
+        else:
+            for view in self.window.views():
+                view.set_status("type_at_cursor", "")
+                view.add_regions("type_at_cursor", [], "invalid", "", sublime.DRAW_OUTLINED)
+
 
     def highlight_errors(self, errors):
         """
