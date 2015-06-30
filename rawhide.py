@@ -222,7 +222,7 @@ class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
         """
         print("Launching HIDE in ", first_folder(self.window)) 
  
-        self.process = subprocess.Popen(["ide-backend-client", "cabal", "."],
+        self.process = subprocess.Popen(["stack-ide", "empty"],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             cwd=first_folder(self.window)
             )
