@@ -104,13 +104,16 @@ def module_name_for_view(view):
 
 class IdeBackendTypeAtCursorHandler(sublime_plugin.EventListener):
     def on_selection_modified(self, view):
-        print(view.scope_name(view.sel()[0].begin()))
-        request = { 
-            "request": "getExpTypes", 
-            "module": module_name_for_view(view), 
-            "span": span_from_view_selection(view)
-            }
-        send_request(view, request)        
+        # Only try to get types for views into files
+        # (rather than e.g. the find field or the console pane)
+        if view.file_name():
+            print(view.scope_name(view.sel()[0].begin()))
+            request = { 
+                "request": "getExpTypes", 
+                "module": module_name_for_view(view), 
+                "span": span_from_view_selection(view)
+                }
+            send_request(view, request)
 
 class IdeBackendAutocompleteHandler(sublime_plugin.EventListener):
 
@@ -149,7 +152,7 @@ class IdeBackendAutocompleteHandler(sublime_plugin.EventListener):
         names       = map(lambda x: x.get("name"),    self.returned_completions)
 
         annotated_completions = list(zip(annotations, names))
-        print("Returning: " + str(annotated_completions))
+        print("Returning: ", annotated_completions)
         return annotated_completions
 
 
@@ -217,7 +220,7 @@ class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
         """
         Start up a ide-backend-client subprocess for the window, and a thread to consume its stdout.
         """
-        print("Launching HIDE in " + first_folder(self.window)) 
+        print("Launching HIDE in ", first_folder(self.window)) 
  
         self.process = subprocess.Popen(["/Users/lukexi/.cabal/bin/ide-backend-client", "cabal", "."],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -240,7 +243,7 @@ class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
         Called via run_command("send_ide_backend_request", {"request":})
         """
         if self.process:
-            print("SENDING " + str(request))
+            print("SENDING ", request)
             encodedString = json.JSONEncoder().encode(request) + "\n"
             self.process.stdin.write(bytes(encodedString, 'UTF-8'))
             self.process.stdin.flush()
@@ -251,7 +254,7 @@ class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
                 print("STDERR:")
                 print(self.process.stderr.readline().decode('UTF-8'))
             except:
-                print("stderr process ending due to exception:", str(sys.exc_info()))
+                print("stderr process ending due to exception: ", sys.exc_info())
                 return;
         print("process ended...")
 
@@ -296,7 +299,7 @@ class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
                     print(data)
                 
             except:
-                print("process ending due to exception:", str(sys.exc_info()))
+                print("process ending due to exception: ", sys.exc_info())
                 self.process.terminate()
                 self.process = None
                 return;
@@ -350,7 +353,7 @@ class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
             if view_and_region:
                 (view_for_error, region) = view_and_region
 
-                print("Adding error at "+ str(span) +": " + str(msg))
+                print("Adding error at "+ str(span) + ": " + str(msg))
 
                 error_regions_for_view = errors_by_view_id.get(view_for_error.id(), [])
                 error_regions_for_view += [region]
