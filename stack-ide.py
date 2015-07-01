@@ -11,28 +11,28 @@ import json
 # Ensure existing processes are killed when we 
 # save the plugin to prevent proliferation of 
 # stack-ide session.13953 folders
-rawhide_processes = []
+stack_ide_processes = []
 
 def plugin_loaded():
     print("Rawhide loaded.")
     
 def plugin_unloaded():
-    global rawhide_processes
+    global stack_ide_processes
     kill_all_processes()
 
 def kill_all_processes():
-    global rawhide_processes
-    print("Killing all Rawhide instances: " + str(rawhide_processes))
-    for process in rawhide_processes:
+    global stack_ide_processes
+    print("Killing all Rawhide instances: " + str(stack_ide_processes))
+    for process in stack_ide_processes:
         process.end()
-    rawhide_processes = []
+    stack_ide_processes = []
 
 def register_process(process):
-    global rawhide_processes
-    if not rawhide_processes:
-        rawhide_processes = []
-    rawhide_processes += [process]
-    print(rawhide_processes)
+    global stack_ide_processes
+    if not stack_ide_processes:
+        stack_ide_processes = []
+    stack_ide_processes += [process]
+    print(stack_ide_processes)
 
 
 #############################

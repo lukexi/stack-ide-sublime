@@ -1,16 +1,13 @@
 ```
-=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
-.-,--.           .       .     
- `|__/ ,-. . , , |-. . ,-| ,-. 
-  | \  ,-| |/|/  | | | | | |-' 
-`-'  ` `-^ ' '   ' ' ' `-' `-' 
-=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
+=~=~=~=~=~=~=~=~=~=~=~=~=~
+Stack-IDE for Sublime Text
+=~=~=~=~=~=~=~=~=~=~=~=~=~
 ```
 
 
-![Rawhide Errors](http://lukexi.github.io/RawhideErrors.png)
-![Rawhide Autocomplete](http://lukexi.github.io/RawhideAutocomplete.png)
-![Rawhide Type-at-cursor](http://lukexi.github.io/RawhideTypeAtCursor.png)
+![SublimeStackIDE Errors](http://lukexi.github.io/RawhideErrors.png)
+![SublimeStackIDE Autocomplete](http://lukexi.github.io/RawhideAutocomplete.png)
+![SublimeStackIDE Type-at-cursor](http://lukexi.github.io/RawhideTypeAtCursor.png)
 
 
 
@@ -24,7 +21,7 @@ via
 https://github.com/chrisdone/ide-backend-client
 
 Clone to
-`~/Library/Application Support/Sublime Text 3/Packages/Rawhide`
+`~/Library/Application Support/Sublime Text 3/Packages/SublimeStackIDE`
 
 Bleeding edge notes:
 Currently depends on some patches in https://github.com/lukexi/ide-backend-client,
@@ -38,5 +35,5 @@ stack install ../../Code/ide-backend/ide-backend
 stack install ../../Code/stack-ide/stack-ide-api
 stack install ../../Code/stack-ide/stack-ide
 ```
-Rawhide currently expects you to open a folder in sublime with a .cabal file in it.
+SublimeStackIDE currently expects you to open a folder in sublime with a .cabal file in it.
 Stack support is underway.
