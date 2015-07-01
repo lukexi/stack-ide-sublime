@@ -13,4 +13,4 @@ Bleeding edge notes:
 Requires newest versions of
 https://github.com/commercialhaskell/stack
 and
-https://github.com/commercialhaskell/stack-ide (see installations instructions there)
+https://github.com/commercialhaskell/stack-ide (see installation instructions there)
