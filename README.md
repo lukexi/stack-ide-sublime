@@ -13,18 +13,13 @@ Stack-IDE for Sublime Text
 
 
 An Sublime Text IDE for Haskell based on
-
-https://github.com/fpco/ide-backend
-
-via
-
-https://github.com/chrisdone/ide-backend-client
+https://github.com/commercialhaskell/stack-ide
 
 Clone to
 `~/Library/Application Support/Sublime Text 3/Packages/SublimeStackIDE`
 
 Bleeding edge notes:
-Currently depends on some patches in https://github.com/lukexi/ide-backend-client,
+Currently depends on some patches in https://github.com/lukexi/stack-ide,
 which in turn depends on the newest https://github.com/fpco/ide-backend.
 Clone them both, and then run (assuming you're in directory you cloned them both into):
 ```
