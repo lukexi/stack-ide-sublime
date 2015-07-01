@@ -122,16 +122,12 @@ class IdeBackendSaveListener(sublime_plugin.EventListener):
     """
     def on_post_save(self, view):
         # Disabled pending support in stack-ide
-        if False:
-            request = {
-                "tag":"RequestUpdateSession",
-                "contents": [ {
-                            "tag":"RequestUpdateSourceFileFromFile",
-                            "contents":relative_view_file_name(view)
-                        } ]
-                }
-            send_request(view, request)
-            send_request(view, { "tag": "RequestGetSourceErrors", "contents":[] })
+        request = {
+            "tag":"RequestSessionUpdate",
+            "contents": []
+            }
+        send_request(view, request)
+        send_request(view, { "tag": "RequestGetSourceErrors", "contents":[] })
 
 class IdeBackendTypeAtCursorHandler(sublime_plugin.EventListener):
     """
@@ -316,10 +312,10 @@ class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
                 raw = self.process.stdout.readline().decode('UTF-8')
                 if not raw:
                     return
-                # print("Result is: ", raw)
+                # print("Raw response: ", raw)
 
                 data = json.loads(raw)
-                print(data)
+                # print(data)
                 
                 response = data.get("tag")
                 contents = data.get("contents")
@@ -330,7 +326,6 @@ class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
                         progressMessage = contents.get("progressParsedMsg")
                         if progressMessage:
                             sublime.status_message(progressMessage)
-
                 # Pass autocompletion responses to the completions handler
                 # (via our window command hack - see note in on_window_command)
                 elif response == "ResponseGetAutocompletion":
@@ -341,11 +336,12 @@ class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
                     errors = data.get("errors")
                     if errors != None:
                         sublime.set_timeout(lambda: self.highlight_errors(errors), 0)
+                # Pass type information to the type highlighter
                 elif response == "ResponseGetExpTypes":
                     if contents != None:
                         sublime.set_timeout(lambda: self.highlight_type(contents), 0)
                 else:
-                    print(data)
+                    print("Unhandled response: ", data)
                 
             except:
                 print("Stack-IDE stdout process ending due to exception: ", sys.exc_info())
