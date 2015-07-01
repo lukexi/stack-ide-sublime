@@ -31,12 +31,12 @@ Currently depends on some patches in https://github.com/lukexi/ide-backend-clien
 which in turn depends on the newest https://github.com/fpco/ide-backend.
 Clone them both, and then run (assuming you're in directory you cloned them both into):
 ```
-cabal install ide-backend/ide-backend-common/
-cabal install ide-backend/ide-backend-server/
-cabal install ide-backend/ide-backend-rts/
-cabal install ide-backend/ide-backend/
-cabal install ide-backend-client/ide-backend-json/
-cabal install ide-backend-client/ide-backend-client/
+stack install ../../Code/ide-backend/ide-backend-rts
+stack install ../../Code/ide-backend/ide-backend-common
+stack install ../../Code/ide-backend/ide-backend-server
+stack install ../../Code/ide-backend/ide-backend
+stack install ../../Code/stack-ide/stack-ide-api
+stack install ../../Code/stack-ide/stack-ide
 ```
 Rawhide currently expects you to open a folder in sublime with a .cabal file in it.
 Stack support is underway.

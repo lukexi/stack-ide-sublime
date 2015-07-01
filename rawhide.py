@@ -5,10 +5,12 @@ import threading
 import time
 import json
 
-# Devel util
+#############################
+# Plugin development utils
+#############################
 # Ensure existing processes are killed when we 
 # save the plugin to prevent proliferation of 
-# ide-backend-client session.13953 folders
+# stack-ide session.13953 folders
 rawhide_processes = []
 
 def plugin_loaded():
@@ -31,11 +33,15 @@ def register_process(process):
         rawhide_processes = []
     rawhide_processes += [process]
     print(rawhide_processes)
-# End devel util
+
+
+#############################
+# Utility functions
+#############################
 
 def first_folder(window):
     """
-    We only support running one ide-backend-client instance per window currently,
+    We only support running one stack-ide instance per window currently,
     on the first folder open in that window.
     """
     return window.folders()[0]
@@ -46,6 +52,50 @@ def relative_view_file_name(view):
     """
     return view.file_name().replace(first_folder(view.window()) + "/", "")
 
+def send_request(view, request):
+    """
+    Call the view's window's SendIdeBackendRequestCommand instance with the given request.
+    """
+    view.window().run_command("send_ide_backend_request", {"request":request})
+
+def span_from_view_selection(view):
+    return span_from_view_region(view, view.sel()[0])
+
+def span_from_view_region(view, region):
+    (from_line, from_col) = view.rowcol(region.begin())
+    (to_line,   to_col)   = view.rowcol(region.end())
+    return {
+        "spanFilePath": relative_view_file_name(view),
+        "spanFromLine": from_line + 1,
+        "spanFromColumn": to_col + 1,
+        "spanToLine": to_line + 1,
+        "spanToColumn": to_col + 1
+        }
+
+def view_region_from_json_span(span, window):
+    if span == None:
+        return None
+    file_path    = span.get("spanFilePath")
+    from_line    = span.get("spanFromLine")
+    from_column  = span.get("spanFromColumn")
+    to_line      = span.get("spanToLine")
+    to_column    = span.get("spanToColumn")
+    full_path    = first_folder(window) + "/" + file_path
+    view         = window.find_open_file(full_path)
+    if view:
+        from_point = view.text_point(from_line - 1, from_column - 1)
+        to_point   = view.text_point(to_line   - 1, to_column   - 1)
+        region     = sublime.Region(from_point, to_point)
+        return (view, region)
+
+def module_name_for_view(view):
+    module_name = view.substr(view.find("^module [A-Za-z._]*", 0)).replace("module ", "")
+    return module_name
+
+
+#############################
+# Text commands
+#############################
 
 class ClearErrorPanelCommand(sublime_plugin.TextCommand):
     """
@@ -61,77 +111,64 @@ class UpdateErrorPanelCommand(sublime_plugin.TextCommand):
     def run(self, edit, errors):
         self.view.insert(edit, self.view.size(), str(errors) + "\n\n")
 
+#############################
+# Event Listeners
+#############################
+
 class IdeBackendSaveListener(sublime_plugin.EventListener):
     """
-    Ask ide-backend-client to recompile the saved source file, 
+    Ask stack-ide to recompile the saved source file, 
     then request a report of source errors.
     """
     def on_post_save(self, view):
-        request = {
-            "request":"updateSession",
-            "update": [
-                { "update": "updateSourceFileFromFile"
-                , "filePath": relative_view_file_name(view)
+        # Disabled pending support in stack-ide
+        if False:
+            request = {
+                "tag":"RequestUpdateSession",
+                "contents": [ {
+                            "tag":"RequestUpdateSourceFileFromFile",
+                            "contents":relative_view_file_name(view)
+                        } ]
                 }
-            ]
-            }
-        send_request(view, request)
-        send_request(view, { "request": "getSourceErrors" })
-
-def send_request(view, request):
-    """
-    Call the view's window's SendIdeBackendRequestCommand instance with the given request.
-    """
-    view.window().run_command("send_ide_backend_request", {"request":request})
-
-def span_from_view_selection(view):
-    return span_from_view_region(view, view.sel()[0])
-
-def span_from_view_region(view, region):
-    (from_line, from_col) = view.rowcol(region.begin())
-    (to_line,   to_col)   = view.rowcol(region.end())
-    return {
-        "filePath": relative_view_file_name(view),
-        "fromLine": from_line + 1,
-        "fromColumn": to_col + 1,
-        "toLine": to_line + 1,
-        "toColumn": to_col + 1
-        }
-
-def module_name_for_view(view):
-    module_name = view.substr(view.find("^module [A-Za-z._]*", 0)).replace("module ", "")
-    return module_name
+            send_request(view, request)
+            send_request(view, { "tag": "RequestGetSourceErrors", "contents":[] })
 
 class IdeBackendTypeAtCursorHandler(sublime_plugin.EventListener):
+    """
+    Ask stack-ide for the type at the cursor each 
+    time it changes position.
+    """
     def on_selection_modified(self, view):
         # Only try to get types for views into files
         # (rather than e.g. the find field or the console pane)
         if view.file_name():
-            print(view.scope_name(view.sel()[0].begin()))
+            # Uncomment to see the scope at the cursor:
+            # print(view.scope_name(view.sel()[0].begin()))
             request = { 
-                "request": "getExpTypes", 
-                "module": module_name_for_view(view), 
-                "span": span_from_view_selection(view)
+                "tag": "RequestGetExpTypes", 
+                "contents" :  span_from_view_selection(view)
                 }
             send_request(view, request)
 
 class IdeBackendAutocompleteHandler(sublime_plugin.EventListener):
-
+    """
+    Dispatches autocompletion requests to stack-ide.
+    """
     def __init__(self):
         super(IdeBackendAutocompleteHandler, self).__init__()
         self.returned_completions = []
 
     def on_query_completions(self, view, prefix, locations):
         # Check if this completion query is due to our refreshing the completions list
-        # after receiving a response from ide-backend-client, and if so, don't send
+        # after receiving a response from stack-ide, and if so, don't send
         # another request for completions.
         if not view.settings().get("refreshing_auto_complete"):
             request = {
-                "request":"getAutocompletion", 
-                "autocomplete": {
-                    "filePath": relative_view_file_name(view), 
-                    "prefix": prefix
-                    } 
+                "tag":"RequestGetAutocompletion", 
+                "contents": {
+                        "autocompletionFilePath": relative_view_file_name(view), 
+                        "autocompletionPrefix": prefix
+                    }
                 }
             send_request(view, request)
 
@@ -146,10 +183,10 @@ class IdeBackendAutocompleteHandler(sublime_plugin.EventListener):
             return "\t".join(
                 filter(lambda x: x is not None, 
                     map(completion.get, 
-                        ["name", "type", "definedIn"])))
+                        ["autocompletionInfoName", "autocompletionType", "autocompletionInfoDefinedIn"])))
 
         annotations = map(annotation_from_completion, self.returned_completions)
-        names       = map(lambda x: x.get("name"),    self.returned_completions)
+        names       = map(lambda x: x.get("autocompletionInfoName"),    self.returned_completions)
 
         annotated_completions = list(zip(annotations, names))
         print("Returning: ", annotated_completions)
@@ -168,7 +205,7 @@ class IdeBackendAutocompleteHandler(sublime_plugin.EventListener):
             return None
         completions = args.get("completions")
         if command_name == "update_completions" and completions:
-            print("INTERCEPTED:\n " + str(completions) + "\n")
+            # print("INTERCEPTED:\n " + str(completions) + "\n")
             
             self.returned_completions = completions
 
@@ -193,6 +230,11 @@ class IdeBackendAutocompleteHandler(sublime_plugin.EventListener):
             sublime.set_timeout(reactivate, 0)
         return None
 
+
+#############################
+# Window commands
+#############################
+
 class UpdateCompletionsCommand(sublime_plugin.WindowCommand):
     """
     This class only exists so that the command can be called and intercepted by
@@ -203,7 +245,7 @@ class UpdateCompletionsCommand(sublime_plugin.WindowCommand):
 
 class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
     """
-    Runs a per-window process of ide-backend-client.
+    Runs a per-window process of stack-ide.
     (Sublime Text uses the class name to determine the name of the command
     the class executes when called, i.e. send_ide_backend_request)
     """
@@ -214,116 +256,129 @@ class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
 
         self.boot_ide_backend()
         
-        self.run({ "request": "getSourceErrors" })
+        self.run({ "tag": "RequestGetSourceErrors", "contents":[] })
 
     def boot_ide_backend(self):
         """
-        Start up a ide-backend-client subprocess for the window, and a thread to consume its stdout.
+        Start up a stack-ide subprocess for the window, and a thread to consume its stdout.
         """
         print("Launching HIDE in ", first_folder(self.window)) 
- 
-        self.process = subprocess.Popen(["stack-ide", "empty"],
+        
+        # Assumes the library target name is the same as the project dir
+        (project_in, project_name) = os.path.split(first_folder(self.window))
+        self.process = subprocess.Popen(["stack", "ide", project_name],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             cwd=first_folder(self.window)
             )
-        
-        
+
         self.stdoutThread = threading.Thread(target=self.read_stdout)
         self.stdoutThread.start()
         
-        # self.stderrThread = threading.Thread(target=self.read_stderr)
-        # self.stderrThread.start()
+        self.stderrThread = threading.Thread(target=self.read_stderr)
+        self.stderrThread.start()
 
     def end(self):
-        self.run({"request":"shutdownSession"})
+        """
+        Ask stack-ide to shut down.
+        """
+        self.run({"tag":"RequestShutdownSession", "contents":[]})
 
     def run(self, request):
         """
-        Pass a request to ide-backend-client.
+        Pass a request to stack-ide.
         Called via run_command("send_ide_backend_request", {"request":})
         """
         if self.process:
-            print("SENDING ", request)
+            print("Sending request: ", request)
             encodedString = json.JSONEncoder().encode(request) + "\n"
             self.process.stdin.write(bytes(encodedString, 'UTF-8'))
             self.process.stdin.flush()
 
     def read_stderr(self):
+        """
+        Reads any errors from the stack-ide process.
+        """
         while self.process.poll() is None:
             try:
-                print("STDERR:")
-                print(self.process.stderr.readline().decode('UTF-8'))
+                print("Stack-IDE error: ", self.process.stderr.readline().decode('UTF-8'))
             except:
-                print("stderr process ending due to exception: ", sys.exc_info())
+                print("Stack-IDE stderr process ending due to exception: ", sys.exc_info())
                 return;
-        print("process ended...")
+        print("Stack-IDE stderr process ended.")
 
     def read_stdout(self):
         """
-        Reads JSON responses from ide-backend-client and dispatch them to
+        Reads JSON responses from stack-ide and dispatch them to
         various main thread handlers.
         """
         while self.process.poll() is None:
             try:
                 raw = self.process.stdout.readline().decode('UTF-8')
+                if not raw:
+                    return
+                # print("Result is: ", raw)
 
                 data = json.loads(raw)
+                print(data)
                 
-                # print(data)
-                progress = data.get("progress")
-                response = data.get("response")
+                response = data.get("tag")
+                contents = data.get("contents")
 
                 # Pass progress messages to the status bar
-                if progress:
-                    progressMessage = progress.get("parsedMsg")
-                    if progressMessage:
-                        sublime.status_message(progressMessage)
+                if response == "ResponseUpdateSession":
+                    if contents != None:
+                        progressMessage = contents.get("progressParsedMsg")
+                        if progressMessage:
+                            sublime.status_message(progressMessage)
 
                 # Pass autocompletion responses to the completions handler
                 # (via our window command hack - see note in on_window_command)
-                elif response == "getAutocompletion":
-                    completions = data.get("completions")
-                    if completions != None:
-                        sublime.set_timeout(lambda: self.update_completions(completions), 0)
-
+                elif response == "ResponseGetAutocompletion":
+                    if contents != None:
+                        sublime.set_timeout(lambda: self.update_completions(contents), 0)
                 # Pass source error responses to the error highlighter
-                elif response == "getSourceErrors":
+                elif response == "ResponseGetSourceErrors":
                     errors = data.get("errors")
                     if errors != None:
                         sublime.set_timeout(lambda: self.highlight_errors(errors), 0)
-                elif response == "getExpTypes":
-                    types = data.get("info")
-                    if types != None:
-                        sublime.set_timeout(lambda: self.highlight_type(types), 0)
+                elif response == "ResponseGetExpTypes":
+                    if contents != None:
+                        sublime.set_timeout(lambda: self.highlight_type(contents), 0)
                 else:
                     print(data)
                 
             except:
-                print("process ending due to exception: ", sys.exc_info())
+                print("Stack-IDE stdout process ending due to exception: ", sys.exc_info())
                 self.process.terminate()
                 self.process = None
                 return;
-        print("process ended...")
+        print("Stack-IDE stdout process ended.")
 
     def update_completions(self, completions):
+        """
+        Dispatches to the dummy UpdateCompletionsCommand, which is intercepted
+        by IdeBackendAutocompleteHandler's on_window_command to update its list
+        of completions.
+        """
         self.window.run_command("update_completions", {"completions":completions})
 
     def highlight_type(self, types):
         """
         ide-backend gives us a wealth of type info for the cursor. We only use the first,
-        most specifc one for now, but it gives us the types all the way out to the topmost
+        most specific one for now, but it gives us the types all the way out to the topmost
         expression.
         """
         if types:
+            # Display the first type in a region and in the status bar
             first_type = types[0]
-            span = first_type.get("span")
+            [type_string, span] = types[0]
             view_and_region = view_region_from_json_span(span, self.window)
             if view_and_region:
                 (view, region) = view_and_region
-                type_string = first_type.get("type", "")
                 view.set_status("type_at_cursor", type_string)
                 view.add_regions("type_at_cursor", [region], "storage.type", "", sublime.DRAW_OUTLINED)
         else:
+            # Clear type-at-cursor display
             for view in self.window.views():
                 view.set_status("type_at_cursor", "")
                 view.add_regions("type_at_cursor", [], "invalid", "", sublime.DRAW_OUTLINED)
@@ -353,7 +408,7 @@ class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
             if view_and_region:
                 (view_for_error, region) = view_and_region
 
-                print("Adding error at "+ str(span) + ": " + str(msg))
+                # print("Adding error at "+ str(span) + ": " + str(msg))
 
                 error_regions_for_view = errors_by_view_id.get(view_for_error.id(), [])
                 error_regions_for_view += [region]
@@ -380,18 +435,4 @@ class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
             self.process.terminate()
             self.process = None
 
-def view_region_from_json_span(span, window):
-    if span == None:
-        return None
-    file_path    = span.get("filePath")
-    from_line    = span.get("fromLine")
-    from_column  = span.get("fromColumn")
-    to_line      = span.get("toLine")
-    to_column    = span.get("toColumn")
-    full_path    = first_folder(window) + "/" + file_path
-    view         = window.find_open_file(full_path)
-    if view:
-        from_point = view.text_point(from_line - 1, from_column - 1)
-        to_point   = view.text_point(to_line   - 1, to_column   - 1)
-        region     = sublime.Region(from_point, to_point)
-        return (view, region)
+
