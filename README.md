@@ -19,16 +19,7 @@ Clone to
 `~/Library/Application Support/Sublime Text 3/Packages/SublimeStackIDE`
 
 Bleeding edge notes:
-Currently depends on some patches in https://github.com/lukexi/stack-ide,
-which in turn depends on the newest https://github.com/fpco/ide-backend.
-Clone them both, and then run (assuming you're in directory you cloned them both into):
-```
-stack install ../../Code/ide-backend/ide-backend-rts
-stack install ../../Code/ide-backend/ide-backend-common
-stack install ../../Code/ide-backend/ide-backend-server
-stack install ../../Code/ide-backend/ide-backend
-stack install ../../Code/stack-ide/stack-ide-api
-stack install ../../Code/stack-ide/stack-ide
-```
-SublimeStackIDE currently expects you to open a folder in sublime with a .cabal file in it.
-Stack support is underway.
+Requires
+https://github.com/lukexi/stack
+and
+https://github.com/lukexi/stack-ide (see instructions)
