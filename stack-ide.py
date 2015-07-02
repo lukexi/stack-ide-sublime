@@ -76,6 +76,8 @@ def view_region_from_json_span(span, window):
     if span == None:
         return None
     file_path    = span.get("spanFilePath")
+    if file_path == None:
+        return None
     from_line    = span.get("spanFromLine")
     from_column  = span.get("spanFromColumn")
     to_line      = span.get("spanToLine")
@@ -315,7 +317,7 @@ class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
                 # print("Raw response: ", raw)
 
                 data = json.loads(raw)
-                # print(data)
+                print(data)
                 
                 response = data.get("tag")
                 contents = data.get("contents")
@@ -333,9 +335,8 @@ class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
                         sublime.set_timeout(lambda: self.update_completions(contents), 0)
                 # Pass source error responses to the error highlighter
                 elif response == "ResponseGetSourceErrors":
-                    errors = data.get("errors")
-                    if errors != None:
-                        sublime.set_timeout(lambda: self.highlight_errors(errors), 0)
+                    if contents != None:
+                        sublime.set_timeout(lambda: self.highlight_errors(contents), 0)
                 # Pass type information to the type highlighter
                 elif response == "ResponseGetExpTypes":
                     if contents != None:
@@ -395,10 +396,10 @@ class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
         # Gather each error by the file view it should annotate
         errors_by_view_id = {}
         for error in errors:
-            msg = error.get("msg")
+            msg = error.get("errorMsg")
             error_panel.run_command("update_error_panel", {"errors":msg})
-            span = error.get("span")
-            # kind = error.get("kind")
+            span = error.get("errorSpan")
+            # kind = error.get("errorKind")
             view_and_region = view_region_from_json_span(span, self.window)
 
             if view_and_region:
