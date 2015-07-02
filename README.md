@@ -10,7 +10,7 @@ Install stack-ide, and clone to
 ![SublimeStackIDE Type-at-cursor](http://lukexi.github.io/RawhideTypeAtCursor.png)
 
 Bleeding edge notes:
-Requires
-https://github.com/lukexi/stack
+Requires newest versions of
+https://github.com/commercialhaskell/stack
 and
-https://github.com/lukexi/stack-ide (see instructions)
+https://github.com/commercialhaskell/stack-ide (see installation instructions there)
