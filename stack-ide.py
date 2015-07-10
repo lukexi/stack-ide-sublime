@@ -14,7 +14,7 @@ import json
 stack_ide_processes = []
 
 def plugin_loaded():
-    print("Rawhide loaded.")
+    print("stack-ide-sublime loaded.")
     
 def plugin_unloaded():
     global stack_ide_processes
@@ -22,7 +22,7 @@ def plugin_unloaded():
 
 def kill_all_processes():
     global stack_ide_processes
-    print("Killing all Rawhide instances: " + str(stack_ide_processes))
+    print("Killing all stack-ide-sublime instances: " + str(stack_ide_processes))
     for process in stack_ide_processes:
         process.end()
     stack_ide_processes = []
@@ -123,9 +123,8 @@ class IdeBackendSaveListener(sublime_plugin.EventListener):
     then request a report of source errors.
     """
     def on_post_save(self, view):
-        # Disabled pending support in stack-ide
         request = {
-            "tag":"RequestSessionUpdate",
+            "tag":"RequestUpdateSession",
             "contents": []
             }
         send_request(view, request)

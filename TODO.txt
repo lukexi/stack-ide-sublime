@@ -12,8 +12,12 @@
 
 
 
-
-
+[ ] Figure out autocompletion for qualified names, e.g. Map.insert
+    It may be necessary to remove . from the "word_separators" sublime preference to get sublime to report the full name to the autocompletion plugin,
+    i.e. change it to:
+    "word_separators": "/\\()\"'-:,;<>~!@#$%^&*|+=[]{}`~?",
+    (note that in the default there are two occurrences of . - be sure to remove them both)
+    This wasn't quite enough, so test stack-ide/ide-backend to see if it handles qualified autocompletion correctly.
 
 
 
