@@ -397,18 +397,24 @@ class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
         for error in errors:
             msg = error.get("errorMsg")
             error_panel.run_command("update_error_panel", {"errors":msg})
-            span = error.get("errorSpan")
-            # kind = error.get("errorKind")
-            view_and_region = view_region_from_json_span(span, self.window)
+            proper_span = error.get("errorSpan")
+            if proper_span.get("tag") == "ProperSpan":
+                span = proper_span.get("contents")
+                if span:
+                    # kind = error.get("errorKind")
+                    view_and_region = view_region_from_json_span(span, self.window)
+                    print("View and region: ", view_and_region)
 
-            if view_and_region:
-                (view_for_error, region) = view_and_region
+                    if view_and_region:
+                        (view_for_error, region) = view_and_region
 
-                # print("Adding error at "+ str(span) + ": " + str(msg))
+                        print("Adding error at "+ str(span) + ": " + str(msg))
 
-                error_regions_for_view = errors_by_view_id.get(view_for_error.id(), [])
-                error_regions_for_view += [region]
-                errors_by_view_id[view_for_error.id()] = error_regions_for_view
+                        error_regions_for_view = errors_by_view_id.get(view_for_error.id(), [])
+                        error_regions_for_view += [region]
+                        errors_by_view_id[view_for_error.id()] = error_regions_for_view
+            else:
+                print("Unhandled error tag type: ", proper_span)
 
         # Add error regions to their respective views
         for view in self.window.views():
