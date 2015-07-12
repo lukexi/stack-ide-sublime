@@ -140,7 +140,7 @@ class IdeBackendTypeAtCursorHandler(sublime_plugin.EventListener):
         # (rather than e.g. the find field or the console pane)
         if view.file_name():
             # Uncomment to see the scope at the cursor:
-            # print(view.scope_name(view.sel()[0].begin()))
+            print(view.scope_name(view.sel()[0].begin()))
             request = { 
                 "tag": "RequestGetExpTypes", 
                 "contents" :  span_from_view_selection(view)
@@ -377,7 +377,7 @@ class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
             # Clear type-at-cursor display
             for view in self.window.views():
                 view.set_status("type_at_cursor", "")
-                view.add_regions("type_at_cursor", [], "invalid", "", sublime.DRAW_OUTLINED)
+                view.add_regions("type_at_cursor", [], "storage.type", "", sublime.DRAW_OUTLINED)
 
 
     def highlight_errors(self, errors):
@@ -394,6 +394,7 @@ class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
 
         # Gather each error by the file view it should annotate
         errors_by_view_id = {}
+        warnings_by_view_id = {}
         for error in errors:
             msg = error.get("errorMsg")
             error_panel.run_command("update_error_panel", {"errors":msg})
@@ -401,26 +402,33 @@ class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
             if proper_span.get("tag") == "ProperSpan":
                 span = proper_span.get("contents")
                 if span:
-                    # kind = error.get("errorKind")
                     view_and_region = view_region_from_json_span(span, self.window)
                     print("View and region: ", view_and_region)
 
                     if view_and_region:
-                        (view_for_error, region) = view_and_region
+                        (region_view, region) = view_and_region
 
-                        print("Adding error at "+ str(span) + ": " + str(msg))
+                        # print("Adding error at "+ str(span) + ": " + str(msg))
+                        kind = error.get("errorKind")
+                        if kind == "KindWarning":
+                            warning_regions_for_view = warnings_by_view_id.get(region_view.id(), [])
+                            warning_regions_for_view += [region]
+                            warnings_by_view_id[region_view.id()] = warning_regions_for_view
+                        else:
+                            error_regions_for_view = errors_by_view_id.get(region_view.id(), [])
+                            error_regions_for_view += [region]
+                            errors_by_view_id[region_view.id()] = error_regions_for_view
 
-                        error_regions_for_view = errors_by_view_id.get(view_for_error.id(), [])
-                        error_regions_for_view += [region]
-                        errors_by_view_id[view_for_error.id()] = error_regions_for_view
             else:
                 print("Unhandled error tag type: ", proper_span)
 
-        # Add error regions to their respective views
+        # Add error/warning regions to their respective views
         for view in self.window.views():
             # Return an empty list if there are no errors for the view, so that we clear the error regions
             error_regions = errors_by_view_id.get(view.id(), [])
             view.add_regions("errors", error_regions, "invalid", "dot", sublime.DRAW_OUTLINED)
+            warning_regions = warnings_by_view_id.get(view.id(), [])
+            view.add_regions("warnings", warning_regions, "comment", "dot", sublime.DRAW_OUTLINED)
                 
         if errors:
             # Show the panel
