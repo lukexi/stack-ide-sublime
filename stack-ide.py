@@ -11,28 +11,39 @@ import json
 # Ensure existing processes are killed when we 
 # save the plugin to prevent proliferation of 
 # stack-ide session.13953 folders
-stack_ide_processes = []
 
+watchdog = None
 def plugin_loaded():
-    print("stack-ide-sublime loaded.")
-    
+    global watchdog
+    watchdog = StackIDEWatchdog()
+
 def plugin_unloaded():
-    global stack_ide_processes
-    kill_all_processes()
+    global watchdog
+    watchdog.kill()
+    StackIDE.kill_all()
 
-def kill_all_processes():
-    global stack_ide_processes
-    print("Killing all stack-ide-sublime instances: " + str(stack_ide_processes))
-    for process in stack_ide_processes:
-        process.end()
-    stack_ide_processes = []
+class StackIDEWatchdog():
+    """
+    Since I can't find any way to detect if a window closes,
+    we use a watchdog timer to clean up stack-ide instances
+    once we see that the window is no longer in existence.
+    """
+    def __init__(self):
+        super(StackIDEWatchdog, self).__init__()
+        print("Starting stack-ide-sublime watchdog")
+        self.last_windows = set()
+        self.check_for_processes()
 
-def register_process(process):
-    global stack_ide_processes
-    if not stack_ide_processes:
-        stack_ide_processes = []
-    stack_ide_processes += [process]
-    print(stack_ide_processes)
+    def check_for_processes(self):
+        current_windows = set(map(lambda w: w.id(), sublime.windows()))
+        closed_windows = self.last_windows - current_windows
+        for window in closed_windows:
+            StackIDE.kill(window)
+        self.last_windows = current_windows
+        self.timer = threading.Timer(1.0, self.check_for_processes)
+        self.timer.start()
+    def kill(self):
+        self.timer.cancel()
 
 
 #############################
@@ -44,7 +55,11 @@ def first_folder(window):
     We only support running one stack-ide instance per window currently,
     on the first folder open in that window.
     """
-    return window.folders()[0]
+    if len(window.folders()):
+        return window.folders()[0]
+    else:
+        print("Couldn't find a folder for stack-ide-sublime")
+        return None
 
 def relative_view_file_name(view):
     """
@@ -54,9 +69,10 @@ def relative_view_file_name(view):
 
 def send_request(view, request):
     """
-    Call the view's window's SendIdeBackendRequestCommand instance with the given request.
+    Call the view's window's SendStackIDERequestCommand instance with the given request.
     """
-    view.window().run_command("send_ide_backend_request", {"request":request})
+    if StackIDE.is_running(view.window()):
+        StackIDE.for_window(view.window()).send_request(request)
 
 def span_from_view_selection(view):
     return span_from_view_region(view, view.sel()[0])
@@ -117,25 +133,41 @@ class UpdateErrorPanelCommand(sublime_plugin.TextCommand):
 # Event Listeners
 #############################
 
-class IdeBackendSaveListener(sublime_plugin.EventListener):
+class StackIDESaveListener(sublime_plugin.EventListener):
     """
     Ask stack-ide to recompile the saved source file, 
     then request a report of source errors.
     """
     def on_post_save(self, view):
+        if not StackIDE.is_running(view.window()):
+            return
         request = {
             "tag":"RequestUpdateSession",
             "contents": []
             }
+        # This works to load the saved file into stack-ide, but since it doesn't the include dirs
+        # (we don't have the API for that yet, though it wouldn't be hard to add) it won't see any modules.
+        # request = {
+        #     "tag":"RequestUpdateSession",
+        #     "contents":
+        #         [ { "tag": "RequestUpdateTargets",
+        #             "contents": {"tag": "TargetsInclude", "contents":[ relative_view_file_name(view) ]}
+        #           }
+        #         ]
+        #     }
         send_request(view, request)
         send_request(view, { "tag": "RequestGetSourceErrors", "contents":[] })
 
-class IdeBackendTypeAtCursorHandler(sublime_plugin.EventListener):
+class StackIDETypeAtCursorHandler(sublime_plugin.EventListener):
     """
     Ask stack-ide for the type at the cursor each 
     time it changes position.
     """
     def on_selection_modified(self, view):
+        if not view:
+            return
+        if not StackIDE.is_running(view.window()):
+            return
         # Only try to get types for views into files
         # (rather than e.g. the find field or the console pane)
         if view.file_name():
@@ -147,15 +179,17 @@ class IdeBackendTypeAtCursorHandler(sublime_plugin.EventListener):
                 }
             send_request(view, request)
 
-class IdeBackendAutocompleteHandler(sublime_plugin.EventListener):
+class StackIDEAutocompleteHandler(sublime_plugin.EventListener):
     """
     Dispatches autocompletion requests to stack-ide.
     """
     def __init__(self):
-        super(IdeBackendAutocompleteHandler, self).__init__()
+        super(StackIDEAutocompleteHandler, self).__init__()
         self.returned_completions = []
 
     def on_query_completions(self, view, prefix, locations):
+        if not StackIDE.is_running(view.window()):
+            return
         # Check if this completion query is due to our refreshing the completions list
         # after receiving a response from stack-ide, and if so, don't send
         # another request for completions.
@@ -192,12 +226,14 @@ class IdeBackendAutocompleteHandler(sublime_plugin.EventListener):
 
     def on_window_command(self, window, command_name, args):
         """
-        Implements a hacky way of returning data to the IdeBackendAutocompleteHandler instance,
-        wherein SendIdeBackendRequestCommand calls a update_completions command on the window,
+        Implements a hacky way of returning data to the StackIDEAutocompleteHandler instance,
+        wherein SendStackIDERequestCommand calls a update_completions command on the window,
         which is really just a dummy command that we intercept here in order to assign the resulting
         completions to returned_completions to then, finally, return the next time on_query_completions
         is called.
         """
+        if not StackIDE.is_running(window):
+            return
         if args == None:
             return None
         completions = args.get("completions")
@@ -227,7 +263,6 @@ class IdeBackendAutocompleteHandler(sublime_plugin.EventListener):
             sublime.set_timeout(reactivate, 0)
         return None
 
-
 #############################
 # Window commands
 #############################
@@ -235,31 +270,100 @@ class IdeBackendAutocompleteHandler(sublime_plugin.EventListener):
 class UpdateCompletionsCommand(sublime_plugin.WindowCommand):
     """
     This class only exists so that the command can be called and intercepted by
-    IdeBackendAutocompleteHandler to update its completions list.
+    StackIDEAutocompleteHandler to update its completions list.
     """
     def run(self, completions):
         return None
 
-class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
+class SendStackIdeRequestCommand(sublime_plugin.WindowCommand):
     """
-    Runs a per-window process of stack-ide.
+    Starts a process of stack-ide for each new window 
+    (as WindowCommands are instantiated once per window).
+
+    Also allows sending commands via
+    window.run_command("send_stack_ide_request", {"request":{"my":"request"}})
     (Sublime Text uses the class name to determine the name of the command
-    the class executes when called, i.e. send_ide_backend_request)
+    the class executes when called)
     """
 
     def __init__(self, window):
-        super(SendIdeBackendRequestCommand, self).__init__(window)
-        register_process(self)
-
-        self.boot_ide_backend()
+        super(SendStackIdeRequestCommand, self).__init__(window)
         
         self.run({ "tag": "RequestGetSourceErrors", "contents":[] })
+
+    def run(self, request):
+        """
+        Pass a request to stack-ide.
+        Called via run_command("send_stack_ide_request", {"request":})
+        """
+        # We don't check if StackIDE is running first here, as this is meant
+        # to kick off the process when the window first opens
+        instance = StackIDE.for_window(self.window)
+        if instance:
+            instance.send_request(request)
+
+
+        
+
+class StackIDE:
+    ide_backend_instances = {}
+
+    @classmethod
+    def is_running(cls, window):
+        if not window:
+            return False
+        return StackIDE.ide_backend_instances.get(window.id()) is not None
+
+    @classmethod
+    def for_window(cls, window):
+        instance = StackIDE.ide_backend_instances.get(window.id())
+        if not instance:
+            # Make sure there is a folder to monitor
+            if not first_folder(window):
+                instance = None
+            # TODO make sure there is a .cabal file present, 
+            # (or stack.yaml, or whatever stack-ide supports)
+            # We should also support single files, which should get their own StackIDE instance
+            # which would then be per-view. Have a registry per-view that we check, then check the window.
+
+            # If everything looks OK, launch a StackIDE instance
+            else:
+                instance = StackIDE(window)
+        return instance
+
+    @classmethod
+    def kill(cls, window_id):
+        instance = StackIDE.ide_backend_instances.get(window_id)
+        if instance:
+            del StackIDE.ide_backend_instances[window_id]
+            instance.end()
+
+    @classmethod
+    def kill_all(cls):
+        print("Killing all stack-ide-sublime instances: " + str(StackIDE.ide_backend_instances))
+        for process in StackIDE.ide_backend_instances.values():
+            process.end()
+        StackIDE.ide_backend_instances = {}
+
+    def __init__(self, window):
+        StackIDE.ide_backend_instances[window.id()] = self
+        self.window = window
+        self.boot_ide_backend()
+
+    def send_request(self, request):
+        if self.process:
+            print("Sending request: ", request)
+            encodedString = json.JSONEncoder().encode(request) + "\n"
+            self.process.stdin.write(bytes(encodedString, 'UTF-8'))
+            self.process.stdin.flush()
+        else:
+            print("Couldn't send request, no process!", request)
 
     def boot_ide_backend(self):
         """
         Start up a stack-ide subprocess for the window, and a thread to consume its stdout.
         """
-        print("Launching HIDE in ", first_folder(self.window)) 
+        print("Launching stack-ide instance for ", first_folder(self.window))
         
         # Assumes the library target name is the same as the project dir
         (project_in, project_name) = os.path.split(first_folder(self.window))
@@ -278,18 +382,7 @@ class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
         """
         Ask stack-ide to shut down.
         """
-        self.run({"tag":"RequestShutdownSession", "contents":[]})
-
-    def run(self, request):
-        """
-        Pass a request to stack-ide.
-        Called via run_command("send_ide_backend_request", {"request":})
-        """
-        if self.process:
-            print("Sending request: ", request)
-            encodedString = json.JSONEncoder().encode(request) + "\n"
-            self.process.stdin.write(bytes(encodedString, 'UTF-8'))
-            self.process.stdin.flush()
+        self.send_request({"tag":"RequestShutdownSession", "contents":[]})
 
     def read_stderr(self):
         """
@@ -316,7 +409,7 @@ class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
                 # print("Raw response: ", raw)
 
                 data = json.loads(raw)
-                print(data)
+                print("Got response: ", data)
                 
                 response = data.get("tag")
                 contents = data.get("contents")
@@ -353,7 +446,7 @@ class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
     def update_completions(self, completions):
         """
         Dispatches to the dummy UpdateCompletionsCommand, which is intercepted
-        by IdeBackendAutocompleteHandler's on_window_command to update its list
+        by StackIDEAutocompleteHandler's on_window_command to update its list
         of completions.
         """
         self.window.run_command("update_completions", {"completions":completions})
@@ -444,5 +537,10 @@ class SendIdeBackendRequestCommand(sublime_plugin.WindowCommand):
         if self.process:
             self.process.terminate()
             self.process = None
+
+
+
+
+    
 
 

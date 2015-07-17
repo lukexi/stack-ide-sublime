@@ -1,6 +1,3 @@
-
-
-
 [ ] Implement tooltips for type and doc information.
     See here for Sublime Text API:
     https://www.sublimetext.com/forum/viewtopic.php?f=2&t=17583&start=40
@@ -11,7 +8,6 @@
     https://github.com/chrisdone/ide-backend-client/tree/master/ide-backend-client
 
 
-
 [ ] Figure out autocompletion for qualified names, e.g. Map.insert
     It may be necessary to remove . from the "word_separators" sublime preference to get sublime to report the full name to the autocompletion plugin,
     i.e. change it to:
@@ -20,8 +16,12 @@
     This wasn't quite enough, so test stack-ide/ide-backend to see if it handles qualified autocompletion correctly.
 
 
+[ ] Perhaps change references to GHC.Base, GHC.List, etc., in autocomplete into just "Prelude"? I find them noisy.
+
 
 DONE:
+
+[x] End sessions correctly on Window close event (worked around no window close event with a watchdog)
 
 [x] Completions are asynchronous, so we only see them if we type e.g. f<delete>f or on the second letter.
     See if we can re-trigger the completion list once the completions arrive.
