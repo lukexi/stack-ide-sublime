@@ -3,8 +3,7 @@
 Sublime Text plugin for [stack-ide](https://github.com/commercialhaskell/stack-ide)
 
 **Bleeding edge note:** 
-Requires `stack` 0.1.2+, `stack-ide` 0.1+ and GHC 7.10+.
-The current version of `ide-backend` has a limitation that you must have the `ide-backend-rts` package available in your `stack.yaml` file; otherwise you'll see an error panel saying `Couldn't find package: ide-backend-rts` when opening a project with `stack-ide-sublime`. You can work around this by adding `/my/code/checkouts/ide-backend/ide-backend-rts` to each project's `stack.yaml` under `packages`. There's a pull request that will be merged any moment now to fix this here: https://github.com/fpco/ide-backend/pull/290.
+Requires `stack` 0.1.2+, `stack-ide` 0.1+, `ide-backend` HEAD and GHC 7.10+.
 
 `stack-ide-sublime` also requires for the moment that you are opening the same folder that holds the `.cabal` file, and that the folder is named the same as the `.cabal` file.
 
