@@ -1,0 +1,8 @@
+{
+  // List of directories to add to the default system path when running 'stack'.
+   "add_to_PATH": []
+
+  // Controls the messages sent to the console.
+  // Possible values: "none", "error", "warning", "normal", "debug".
+  ,"verbosity": "warning" 
+}

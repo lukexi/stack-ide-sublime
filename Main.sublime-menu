@@ -1,0 +1,48 @@
+[
+	{
+		"caption": "Preferences",
+		"id": "preferences",
+		"mnemonic": "n",
+		"children":
+		[
+			{
+				"caption": "Package Settings",
+				"id": "package-settings",
+				"mnemonic": "P",
+				"children":
+				[
+					{
+						"caption": "SublimeStackIDE",
+						"children":
+						[
+							{
+								"caption": "README",
+								"command": "open_file", "args":
+								{
+									"file": "${packages}/SublimeStackIDE/README.md"
+								}
+							},
+							{
+								"caption": "-"
+							},
+							{
+								"caption": "Settings – Default",
+								"command": "open_file", "args":
+								{
+									"file": "${packages}/SublimeStackIDE/SublimeStackIDE.sublime-settings"
+								}
+							},
+							{
+								"caption": "Settings – User",
+								"command": "open_file", "args":
+								{
+									"file": "${packages}/User/SublimeStackIDE.sublime-settings"
+								}
+							}
+						]
+					}
+				]
+			}
+		]
+	}
+]
