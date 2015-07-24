@@ -20,7 +20,11 @@ def plugin_loaded():
 def plugin_unloaded():
     global watchdog
     watchdog.kill()
-    StackIDE.kill_all()
+    StackIDE.reset()
+    Log.reset()
+    Settings.reset()
+    watchdog = None
+
 
 class StackIDEWatchdog():
     """
@@ -30,18 +34,14 @@ class StackIDEWatchdog():
     """
     def __init__(self):
         super(StackIDEWatchdog, self).__init__()
-        print("Starting stack-ide-sublime watchdog")
-        self.last_windows = set()
+        Log.normal("Starting stack-ide-sublime watchdog")
         self.check_for_processes()
 
     def check_for_processes(self):
-        current_windows = set(map(lambda w: w.id(), sublime.windows()))
-        closed_windows = self.last_windows - current_windows
-        for window in closed_windows:
-            StackIDE.kill(window)
-        self.last_windows = current_windows
+        StackIDE.check_windows()
         self.timer = threading.Timer(1.0, self.check_for_processes)
         self.timer.start()
+
     def kill(self):
         self.timer.cancel()
 
@@ -58,7 +58,7 @@ def first_folder(window):
     if len(window.folders()):
         return window.folders()[0]
     else:
-        print("Couldn't find a folder for stack-ide-sublime")
+        Log.normal("Couldn't find a folder for stack-ide-sublime")
         return None
 
 def relative_view_file_name(view):
@@ -172,7 +172,7 @@ class StackIDETypeAtCursorHandler(sublime_plugin.EventListener):
         # (rather than e.g. the find field or the console pane)
         if view.file_name():
             # Uncomment to see the scope at the cursor:
-            print(view.scope_name(view.sel()[0].begin()))
+            # Log.debug(view.scope_name(view.sel()[0].begin()))
             request = { 
                 "tag": "RequestGetExpTypes", 
                 "contents" :  span_from_view_selection(view)
@@ -220,7 +220,7 @@ class StackIDEAutocompleteHandler(sublime_plugin.EventListener):
         names       = map(lambda x: x.get("autocompletionInfoName"),    self.returned_completions)
 
         annotated_completions = list(zip(annotations, names))
-        print("Returning: ", annotated_completions)
+        Log.debug("Returning: ", annotated_completions)
         return annotated_completions
 
 
@@ -238,8 +238,7 @@ class StackIDEAutocompleteHandler(sublime_plugin.EventListener):
             return None
         completions = args.get("completions")
         if command_name == "update_completions" and completions:
-            # print("INTERCEPTED:\n " + str(completions) + "\n")
-            
+            # Log.debug("INTERCEPTED:\n " + str(completions) + "\n")
             self.returned_completions = completions
 
             # Hide the auto_complete popup so we can reopen it, 
@@ -277,10 +276,7 @@ class UpdateCompletionsCommand(sublime_plugin.WindowCommand):
 
 class SendStackIdeRequestCommand(sublime_plugin.WindowCommand):
     """
-    Starts a process of stack-ide for each new window 
-    (as WindowCommands are instantiated once per window).
-
-    Also allows sending commands via
+    Allows sending commands via
     window.run_command("send_stack_ide_request", {"request":{"my":"request"}})
     (Sublime Text uses the class name to determine the name of the command
     the class executes when called)
@@ -288,16 +284,12 @@ class SendStackIdeRequestCommand(sublime_plugin.WindowCommand):
 
     def __init__(self, window):
         super(SendStackIdeRequestCommand, self).__init__(window)
-        
-        self.run({ "tag": "RequestGetSourceErrors", "contents":[] })
 
     def run(self, request):
         """
         Pass a request to stack-ide.
         Called via run_command("send_stack_ide_request", {"request":})
         """
-        # We don't check if StackIDE is running first here, as this is meant
-        # to kick off the process when the window first opens
         instance = StackIDE.for_window(self.window)
         if instance:
             instance.send_request(request)
@@ -307,69 +299,175 @@ class SendStackIdeRequestCommand(sublime_plugin.WindowCommand):
 
 class StackIDE:
     ide_backend_instances = {}
+    can_complain_about_stack_not_found = True
+
+    @classmethod
+    def check_windows(cls):
+        """
+        Compares the current windows with the list of instances:
+          - new windows are assigned a process of stack-ide each
+          - stale processes are stopped
+
+        NB. This is the only method that updates ide_backend_instances,
+        so as long as it is not called concurrently, there will be no
+        race conditions...
+        """
+        current_windows = {w.id(): w for w in sublime.windows()}
+        updated_instances = {}
+
+        # Kill stale instances, keep live ones
+        for win_id,instance in StackIDE.ide_backend_instances.items():
+            if win_id not in current_windows:
+                # This is a window that is now closed, we may need to kill its process
+                if instance.is_active:
+                    Log.normal("Stopping stale process for window", win_id)
+                    instance.end()
+            else:
+                # This window is still active. There are three possibilities:
+                #  1) it has an alive and active instance.
+                #  2) it has an alive but inactive instance (one that failed to init, etc)
+                #  3) it has a dead instance, i.e., one that was killed.
+                #
+                # A window with a dead instances is treated like a new one, so we will
+                # try to launch a new instance for it
+                if instance.is_alive:
+                    del current_windows[win_id]
+                    updated_instances[win_id] = instance
+
+        StackIDE.ide_backend_instances = updated_instances
+
+        # Thw windows remaining in current_windows are new, so they have no instance.
+        # We try to create one for them
+        for window in current_windows.values():
+            if not first_folder(window):
+                # Make sure there is a folder to monitor
+
+                # TODO make sure there is a .cabal file present,
+                # (or stack.yaml, or whatever stack-ide supports)
+                # We should also support single files, which should get their own StackIDE instance
+                # which would then be per-view. Have a registry per-view that we check, then check the window.
+                Log.normal("No folder to monitor for window ", window.id())
+                instance = NoStackIDE("window folder not being monitored")
+            else:
+                try:
+                    # If everything looks OK, launch a StackIDE instance
+                    Log.normal("Initializing window", window.id())
+                    instance = StackIDE(window)
+                except FileNotFoundError as e:
+                    instance = NoStackIDE("instance init failed -- stack not found")
+                    Log.error(e)
+                    StackIDE.report_stack_not_found()
+                except BaseException as e:
+                    instance = NoStackIDE("instance init failed -- unknown error")
+                    Log.error(e)
+
+            # Cache the instance
+            StackIDE.ide_backend_instances[window.id()] = instance
+
+            # Kick off the process by sending an initial request. We use another thread
+            # to avoid any accidental blocking....
+            def kick_off():
+              Log.normal("Kicking off window", window.id())
+              window.run_command(
+                "send_stack_ide_request"
+              ,{"request": { "tag": "RequestGetSourceErrors", "contents":[] }}
+              )
+            sublime.set_timeout_async(kick_off,300)
+
 
     @classmethod
     def is_running(cls, window):
         if not window:
             return False
-        return StackIDE.ide_backend_instances.get(window.id()) is not None
+        return StackIDE.for_window(window) is not None
+
 
     @classmethod
     def for_window(cls, window):
         instance = StackIDE.ide_backend_instances.get(window.id())
-        if not instance:
-            # Make sure there is a folder to monitor
-            if not first_folder(window):
-                instance = None
-            # TODO make sure there is a .cabal file present, 
-            # (or stack.yaml, or whatever stack-ide supports)
-            # We should also support single files, which should get their own StackIDE instance
-            # which would then be per-view. Have a registry per-view that we check, then check the window.
+        if instance and not instance.is_active:
+            instance = None
 
-            # If everything looks OK, launch a StackIDE instance
-            else:
-                instance = StackIDE(window)
         return instance
 
     @classmethod
-    def kill(cls, window_id):
-        instance = StackIDE.ide_backend_instances.get(window_id)
-        if instance:
-            del StackIDE.ide_backend_instances[window_id]
+    def kill_all(cls):
+        Log.normal("Killing all stack-ide-sublime instances:", StackIDE.ide_backend_instances)
+        for instance in StackIDE.ide_backend_instances.values():
             instance.end()
 
     @classmethod
-    def kill_all(cls):
-        print("Killing all stack-ide-sublime instances: " + str(StackIDE.ide_backend_instances))
-        for process in StackIDE.ide_backend_instances.values():
-            process.end()
-        StackIDE.ide_backend_instances = {}
+    def reset(cls):
+        """
+        Kill all instances, and forget about previous notifications.
+        """
+        Log.normal("Resetting StackIDE")
+        cls.kill_all()
+        cls.can_complain_about_stack_not_found = True
+
+
+    @classmethod
+    def report_stack_not_found(cls):
+      if StackIDE.can_complain_about_stack_not_found:
+          sublime.error_message(
+              "Could not find program 'stack'!\n\n"
+              "Make sure that 'stack' and 'stack-ide' are both installed. "
+              "If they are not on the system path, edit the 'add_to_PATH' "
+              "setting in SublimeStackIDE  preferences." )
+
+          # Let's not annoy the user again
+          StackIDE.can_complain_about_stack_not_found = False
+
+
 
     def __init__(self, window):
-        StackIDE.ide_backend_instances[window.id()] = self
         self.window = window
+        self.is_alive  = True
+        self.is_active = False
         self.boot_ide_backend()
+        self.is_active = True
 
     def send_request(self, request):
         if self.process:
-            print("Sending request: ", request)
-            encodedString = json.JSONEncoder().encode(request) + "\n"
-            self.process.stdin.write(bytes(encodedString, 'UTF-8'))
-            self.process.stdin.flush()
+            try:
+                Log.debug("Sending request: ", request)
+                encodedString = json.JSONEncoder().encode(request) + "\n"
+                self.process.stdin.write(bytes(encodedString, 'UTF-8'))
+                self.process.stdin.flush()
+            except BrokenPipeError as e:
+                Log.error("stack-ide unexpectedly died:",e)
+
+                # self.die()
+                    # Ideally we would like to die(), so that, if the error is transient,
+                    # we attempt to reconnect on the next check_windows() call. The problem
+                    # is that the stack-ide (ide-backend, actually) is not cleaning up those
+                    # session.* directories and they would keep accumulating, one per second!
+                    # So instead we do:
+                self.is_active = False
         else:
-            print("Couldn't send request, no process!", request)
+            Log.error("Couldn't send request, no process!", request)
 
     def boot_ide_backend(self):
         """
         Start up a stack-ide subprocess for the window, and a thread to consume its stdout.
         """
-        print("Launching stack-ide instance for ", first_folder(self.window))
-        
+        Log.normal("Launching stack-ide instance for ", first_folder(self.window))
+
         # Assumes the library target name is the same as the project dir
         (project_in, project_name) = os.path.split(first_folder(self.window))
+
+        # Extend the search path if indicated
+        alt_env = None
+        add_to_PATH = Settings.add_to_PATH()
+        if len(add_to_PATH) > 0:
+          alt_env = os.environ.copy()
+          alt_env["PATH"] = os.pathsep.join(add_to_PATH + [alt_env.get("PATH","")])
+
+        Log.debug("Calling stack with PATH:", alt_env['PATH'])
+
         self.process = subprocess.Popen(["stack", "ide", project_name],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            cwd=first_folder(self.window)
+            cwd=first_folder(self.window), env=alt_env
             )
 
         self.stdoutThread = threading.Thread(target=self.read_stdout)
@@ -383,6 +481,15 @@ class StackIDE:
         Ask stack-ide to shut down.
         """
         self.send_request({"tag":"RequestShutdownSession", "contents":[]})
+        self.die()
+
+    def die(self):
+        """
+        Mark the instance as no longer alive
+        """
+        self.is_alive = False
+        self.is_active = False
+
 
     def read_stderr(self):
         """
@@ -390,11 +497,11 @@ class StackIDE:
         """
         while self.process.poll() is None:
             try:
-                print("Stack-IDE error: ", self.process.stderr.readline().decode('UTF-8'))
+                Log.warning("Stack-IDE error: ", self.process.stderr.readline().decode('UTF-8'))
             except:
-                print("Stack-IDE stderr process ending due to exception: ", sys.exc_info())
+                Log.error("Stack-IDE stderr process ending due to exception: ", sys.exc_info())
                 return;
-        print("Stack-IDE stderr process ended.")
+        Log.normal("Stack-IDE stderr process ended.")
 
     def read_stdout(self):
         """
@@ -406,11 +513,11 @@ class StackIDE:
                 raw = self.process.stdout.readline().decode('UTF-8')
                 if not raw:
                     return
-                # print("Raw response: ", raw)
+                # Log.debug("Raw response: ", raw)
 
                 data = json.loads(raw)
-                print("Got response: ", data)
-                
+                Log.debug("Got response: ", data)
+
                 response = data.get("tag")
                 contents = data.get("contents")
 
@@ -434,14 +541,14 @@ class StackIDE:
                     if contents != None:
                         sublime.set_timeout(lambda: self.highlight_type(contents), 0)
                 else:
-                    print("Unhandled response: ", data)
-                
+                    Log.normal("Unhandled response: ", data)
+
             except:
-                print("Stack-IDE stdout process ending due to exception: ", sys.exc_info())
+                Log.warning("Stack-IDE stdout process ending due to exception: ", sys.exc_info())
                 self.process.terminate()
                 self.process = None
                 return;
-        print("Stack-IDE stdout process ended.")
+        Log.normal("Stack-IDE stdout process ended.")
 
     def update_completions(self, completions):
         """
@@ -496,12 +603,12 @@ class StackIDE:
                 span = proper_span.get("contents")
                 if span:
                     view_and_region = view_region_from_json_span(span, self.window)
-                    print("View and region: ", view_and_region)
+                    Log.normal("View and region: ", view_and_region)
 
                     if view_and_region:
                         (region_view, region) = view_and_region
 
-                        # print("Adding error at "+ str(span) + ": " + str(msg))
+                        # Log.debug("Adding error at "+ str(span) + ": " + str(msg))
                         kind = error.get("errorKind")
                         if kind == "KindWarning":
                             warning_regions_for_view = warnings_by_view_id.get(region_view.id(), [])
@@ -513,7 +620,7 @@ class StackIDE:
                             errors_by_view_id[region_view.id()] = error_regions_for_view
 
             else:
-                print("Unhandled error tag type: ", proper_span)
+                Log.warning("Unhandled error tag type: ", proper_span)
 
         # Add error/warning regions to their respective views
         for view in self.window.views():
@@ -535,12 +642,153 @@ class StackIDE:
 
     def __del__(self):
         if self.process:
-            self.process.terminate()
-            self.process = None
+            try:
+                self.process.terminate()
+            except ProcessLookupError:
+                # it was already done...
+                pass
+            finally:
+                self.process = None
+
+
+
+class NoStackIDE:
+    """
+    Objects of this class are used for windows that don't have an associated stack-ide process
+    (e.g., because initialization failed or they are not being monitored)
+    """
+
+    def __init__(self, reason):
+        self.is_alive = True
+        self.is_active = False
+        self.reason = reason
+
+    def end(self):
+        self.is_alive = False
+
+    def __str__(self):
+        return 'NoStackIDE(' + self.reason + ')'
+
+
+
+class Settings:
+
+    # This is the sublime.Settings object associated to "SublimeStackIDE.sublime-settings".
+    # The Sublime API guarantees that no matter how many times we call sublime.load_settings(),
+    # we will always get the same object, so it is safe to save it (in particular, this means
+    # that if the user modifies the settings, they will be reflected on this object (one can
+    # then use settings.add_on_change() to register a callback, when a reaction is needed).
+    settings = None
+
+    @classmethod
+    def _get(cls,key,default):
+        cls.lazy_init()
+        return cls.settings.get(key,default)
+
+
+    @classmethod
+    def lazy_init(cls):
+        if cls.settings is None:
+            cls.settings = sublime.load_settings("SublimeStackIDE.sublime-settings")
+            cls.settings.add_on_change("_on_new_settings",Settings._on_new_settings)
+
+    @staticmethod
+    def _on_new_settings():
+      Log.reset()
+      StackIDE.reset()
+        # Whenever the add_to_PATH setting changes, it can be that a) instances
+        # that failed to be initialized since 'stack' was not found, now have a
+        # chance of being functional, or b) the user wants to use another version
+        # of stack / stack-ide. In any case, we start again...
+
+    @classmethod
+    def reset(cls):
+      """
+      Removes settings listeners
+      """
+      if cls.settings:
+        cls.settings.clear_on_change("_on_new_settings")
+        cls.settings = None
+
+    @classmethod
+    def add_to_PATH(cls):
+        val = cls._get("add_to_PATH", [])
+        if not isinstance(val,list):
+            val = []
+        return val
+
+    @classmethod
+    def verbosity(cls):
+        return cls._get("verbosity","warning")
 
 
 
 
-    
+class Log:
+  """
+  Logging facilities
+  """
 
+  verbosity = None
 
+  VERB_NONE    = 0
+  VERB_ERROR   = 1
+  VERB_WARNING = 2
+  VERB_NORMAL  = 3
+  VERB_DEBUG   = 4
+
+  @classmethod
+  def reset(cls):
+      Log.verbosity = None
+
+  @classmethod
+  def error(cls,*msg):
+      Log._record(Log.VERB_ERROR, *msg)
+
+  @classmethod
+  def warning(cls,*msg):
+      Log._record(Log.VERB_WARNING, *msg)
+
+  @classmethod
+  def normal(cls,*msg):
+      Log._record(Log.VERB_NORMAL, *msg)
+
+  @classmethod
+  def debug(cls,*msg):
+      Log._record(Log.VERB_DEBUG, *msg)
+
+  @classmethod
+  def _record(cls, verb, *msg):
+      if not Log.verbosity:
+          Log._set_verbosity()
+
+      if verb <= Log.verbosity:
+          for line in ''.join(map(lambda x: str(x), msg)).split('\n'):
+              print('[SublimeStackIDE]['+cls._show_verbosity(verb)+']:',*msg)
+
+          if verb == Log.VERB_ERROR:
+              sublime.status_message('There were errors, check the console log')
+          elif verb == Log.VERB_WARNING:
+              sublime.status_message('There were warnings, check the console log')
+
+  @classmethod
+  def _set_verbosity(cls):
+      verb = Settings.verbosity().lower()
+
+      if verb == "none":
+          Log.verbosity = Log.VERB_NONE
+      elif verb == "error":
+          Log.verbosity = Log.VERB_ERROR
+      elif verb == "warning":
+          Log.verbosity = Log.VERB_WARNING
+      elif verb == "normal":
+          Log.verbosity = Log.VERB_NORMAL
+      elif verb == "debug":
+          Log.verbosity = Log.VERB_DEBUG
+      else:
+          Log.verbosity = Log.VERB_WARNING
+          Log.warning("Invalid verbosity: '" + str(verb) + "'")
+
+  @classmethod
+  def _show_verbosity(cls,verb):
+      return ["?!","ERROR","WARN","NORM","DEBUG"][verb]
