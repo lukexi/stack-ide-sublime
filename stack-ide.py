@@ -89,24 +89,6 @@ def span_from_view_region(view, region):
         "spanToColumn": to_col + 1
         }
 
-def view_region_from_json_span(span, window):
-    if span == None:
-        return None
-    file_path    = span.get("spanFilePath")
-    if file_path == None:
-        return None
-    from_line    = span.get("spanFromLine")
-    from_column  = span.get("spanFromColumn")
-    to_line      = span.get("spanToLine")
-    to_column    = span.get("spanToColumn")
-    full_path    = first_folder(window) + "/" + file_path
-    view         = window.find_open_file(full_path)
-    if view:
-        from_point = view.text_point(from_line - 1, from_column - 1)
-        to_point   = view.text_point(to_line   - 1, to_column   - 1)
-        region     = sublime.Region(from_point, to_point)
-        return (view, region)
-
 def module_name_for_view(view):
     module_name = view.substr(view.find("^module [A-Za-z._]*", 0)).replace("module ", "")
     return module_name
@@ -127,8 +109,8 @@ class UpdateErrorPanelCommand(sublime_plugin.TextCommand):
     """
     An update_error_panel command to append text to the error panel.
     """
-    def run(self, edit, errors):
-        self.view.insert(edit, self.view.size(), str(errors) + "\n\n")
+    def run(self, edit, message):
+        self.view.insert(edit, self.view.size(), message + "\n\n")
 
 #############################
 # Event Listeners
@@ -420,8 +402,6 @@ class StackIDE:
           # Let's not annoy the user again
           StackIDE.can_complain_about_stack_not_found = False
 
-
-
     def __init__(self, window):
         self.window = window
         self.is_alive  = True
@@ -460,10 +440,9 @@ class StackIDE:
         (project_in, project_name) = os.path.split(first_folder(self.window))
 
         # Extend the search path if indicated
-        alt_env = None
+        alt_env = os.environ.copy()
         add_to_PATH = Settings.add_to_PATH()
         if len(add_to_PATH) > 0:
-          alt_env = os.environ.copy()
           alt_env["PATH"] = os.pathsep.join(add_to_PATH + [alt_env.get("PATH","")])
 
         Log.debug("Calling stack with PATH:", alt_env['PATH'] if alt_env else os.environ['PATH'])
@@ -569,13 +548,12 @@ class StackIDE:
         """
         if types:
             # Display the first type in a region and in the status bar
-            first_type = types[0]
             [type_string, span] = types[0]
-            view_and_region = view_region_from_json_span(span, self.window)
-            if view_and_region:
-                (view, region) = view_and_region
-                view.set_status("type_at_cursor", type_string)
-                view.add_regions("type_at_cursor", [region], "storage.type", "", sublime.DRAW_OUTLINED)
+            span = Span.from_json(span, self.window)
+
+            if span:
+                span.view.set_status("type_at_cursor", type_string)
+                span.view.add_regions("type_at_cursor", [span.region], "storage.type", "", sublime.DRAW_OUTLINED)
         else:
             # Clear type-at-cursor display
             for view in self.window.views():
@@ -589,38 +567,48 @@ class StackIDE:
         """
         error_panel = self.window.create_output_panel("hide_errors")
         error_panel.set_read_only(False)
+
+        # This turns on double-clickable error/warning messages in the error panel
+        # using a regex that looks for the form file_name:line:column
+        error_panel.settings().set("result_file_regex","^(..[^:]*):([0-9]+):?([0-9]+)?:? (.*)$")
         
         # Seems to force the panel to refresh after we clear it:
         self.window.run_command("hide_panel", {"panel":"output.hide_errors"})
         # Clear the panel
         error_panel.run_command("clear_error_panel")
 
-        # Gather each error by the file view it should annotate
+        # We gather each error by the file view it should annotate
+        # so we can add regions in bulk to each view.
         errors_by_view_id = {}
         warnings_by_view_id = {}
         for error in errors:
-            msg = error.get("errorMsg")
-            error_panel.run_command("update_error_panel", {"errors":msg})
             proper_span = error.get("errorSpan")
+
+            # Stack-ide can return different kinds of Spans for errors; we only support ProperSpans currently
+            span = None
             if proper_span.get("tag") == "ProperSpan":
-                span = proper_span.get("contents")
-                if span:
-                    view_and_region = view_region_from_json_span(span, self.window)
-                    Log.normal("View and region: ", view_and_region)
+                span = Span.from_json(proper_span.get("contents"), self.window)
 
-                    if view_and_region:
-                        (region_view, region) = view_and_region
+            # Text commands only accept Value types, so we perform the conversion of the error span to a string here
+            # to pass to update_error_panel.
+            # TODO we should pass the errorKind too if the error has no span
+            message = span.as_error_message(error) if span else error.get("errorMsg")
 
-                        # Log.debug("Adding error at "+ str(span) + ": " + str(msg))
-                        kind = error.get("errorKind")
-                        if kind == "KindWarning":
-                            warning_regions_for_view = warnings_by_view_id.get(region_view.id(), [])
-                            warning_regions_for_view += [region]
-                            warnings_by_view_id[region_view.id()] = warning_regions_for_view
-                        else:
-                            error_regions_for_view = errors_by_view_id.get(region_view.id(), [])
-                            error_regions_for_view += [region]
-                            errors_by_view_id[region_view.id()] = error_regions_for_view
+            # Add the error to the error panel
+            error_panel.run_command("update_error_panel", {"message":message})
+
+            # Collect error and warning spans by view for annotations
+            if span:
+                # Log.debug("Adding error at "+ str(span) + ": " + str(error.get("errorMsg")))
+                kind = error.get("errorKind")
+                if kind == "KindWarning":
+                    warning_regions_for_view = warnings_by_view_id.get(span.view.id(), [])
+                    warning_regions_for_view += [span.region]
+                    warnings_by_view_id[span.view.id()] = warning_regions_for_view
+                else:
+                    error_regions_for_view = errors_by_view_id.get(span.view.id(), [])
+                    error_regions_for_view += [span.region]
+                    errors_by_view_id[span.view.id()] = error_regions_for_view
 
             else:
                 Log.warning("Unhandled error tag type: ", proper_span)
@@ -639,8 +627,7 @@ class StackIDE:
         else:
             # Hide the panel
             self.window.run_command("hide_panel", {"panel":"output.hide_errors"})
-
-
+        
         error_panel.set_read_only(True)
 
     def __del__(self):
@@ -653,7 +640,51 @@ class StackIDE:
             finally:
                 self.process = None
 
+class Span:
+    """
+    Represents the Stack-IDE 'span' type
+    """
+    @classmethod
+    def from_json(cls, span, window):
+        file_path    = span.get("spanFilePath")
+        if file_path == None:
+            return None
+        from_line    = span.get("spanFromLine")
+        from_column  = span.get("spanFromColumn")
+        to_line      = span.get("spanToLine")
+        to_column    = span.get("spanToColumn")
 
+        full_path    = first_folder(window) + "/" + file_path
+        view         = window.find_open_file(full_path)
+
+        from_point = view.text_point(from_line - 1, from_column - 1)
+        to_point   = view.text_point(to_line   - 1, to_column   - 1)
+        region     = sublime.Region(from_point, to_point)
+
+        return Span(from_line, from_column, to_line, to_column, full_path, view, from_point, to_point, region)
+        return None
+
+    def __init__(self, from_line, from_column, to_line, to_column, full_path, view, from_point, to_point, region):
+        self.from_line      = from_line
+        self.from_column    = from_column
+        self.to_line        = to_line
+        self.to_column      = to_column
+        self.full_path      = full_path
+        self.view           = view
+        self.from_point     = from_point
+        self.to_point       = to_point
+        self.region         = region
+
+    def as_error_message(self, error):
+        kind      = error.get("errorKind")
+        error_msg = error.get("errorMsg")
+
+        return "{file}:{from_line}:{from_column}: {kind}:\n{msg}".format(
+            file=self.full_path,
+            from_line=self.from_line,
+            from_column=self.from_column,
+            kind=kind,
+            msg=error_msg)
 
 class NoStackIDE:
     """
