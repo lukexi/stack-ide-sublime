@@ -12,8 +12,8 @@ Requires `stack` 0.1.2+, `stack-ide` 0.1+, `ide-backend` HEAD and GHC 7.10+.
 First make sure to install [stack](https://github.com/commercialhaskell/stack#user-content-how-to-install)
 and [stack-ide](https://github.com/commercialhaskell/stack-ide).
 
-**On OSX** clone this package to:
-`~/Library/Application Support/Sublime Text 3/Packages/SublimeStackIDE`
+**On OSX** install this package with the following command:
+`(cd "~/Library/Application Support/Sublime Text 3/Packages"; git clone https://github.com/lukexi/stack-ide-sublime.git)`
 
 **On Linux** install this package with the following command:
 `(cd ~/.config/sublime-text-3/Packages; git clone https://github.com/lukexi/stack-ide-sublime.git)`
@@ -26,3 +26,5 @@ and [stack-ide](https://github.com/commercialhaskell/stack-ide).
 ![SublimeStackIDE Type-at-cursor](http://lukexi.github.io/RawhideTypeAtCursor.png)
 
 
+### Troubleshooting
+First check the Sublime Text console with `ctrl-``. You can increase the plugin's log level by changing the "verbosity" setting in SublimeStackIDE.sublime-settings to "debug". Let us know what you see and we'll get it fixed.
