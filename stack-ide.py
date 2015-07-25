@@ -3,6 +3,7 @@ import subprocess, os
 import sys
 import threading
 import time
+import traceback
 import json
 
 #############################
@@ -357,9 +358,10 @@ class StackIDE:
                     instance = NoStackIDE("instance init failed -- stack not found")
                     Log.error(e)
                     StackIDE.report_stack_not_found()
-                except BaseException as e:
+                except Exception:
                     instance = NoStackIDE("instance init failed -- unknown error")
-                    Log.error(e)
+                    Log.error("Failed to initialize window " + str(window.id()) + ":")
+                    Log.error(traceback.format_exc())
 
             # Cache the instance
             StackIDE.ide_backend_instances[window.id()] = instance
@@ -392,7 +394,7 @@ class StackIDE:
 
     @classmethod
     def kill_all(cls):
-        Log.normal("Killing all stack-ide-sublime instances:", StackIDE.ide_backend_instances)
+        Log.normal("Killing all stack-ide-sublime instances:", {k:str(v) for k,v in StackIDE.ide_backend_instances.items()})
         for instance in StackIDE.ide_backend_instances.values():
             instance.end()
 
@@ -424,6 +426,7 @@ class StackIDE:
         self.window = window
         self.is_alive  = True
         self.is_active = False
+        self.process   = None
         self.boot_ide_backend()
         self.is_active = True
 
@@ -463,7 +466,7 @@ class StackIDE:
           alt_env = os.environ.copy()
           alt_env["PATH"] = os.pathsep.join(add_to_PATH + [alt_env.get("PATH","")])
 
-        Log.debug("Calling stack with PATH:", alt_env['PATH'])
+        Log.debug("Calling stack with PATH:", alt_env['PATH'] if alt_env else os.environ['PATH'])
 
         self.process = subprocess.Popen(["stack", "ide", project_name],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
