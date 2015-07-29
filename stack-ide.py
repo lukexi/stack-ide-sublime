@@ -540,6 +540,17 @@ class StackIDE:
         """
         self.window.run_command("update_completions", {"completions":completions})
 
+    def filter_enclosing(_,from_col, to_col, from_line, to_line, spans):
+        # return spans
+        return [span for span in spans if 
+            (   ((span[1].get("spanFromLine")<from_line) or 
+                (span[1].get("spanFromLine") == from_line and
+                 span[1].get("spanFromColumn") <= from_col))
+            and ((span[1].get("spanToLine")>to_line) or 
+                (span[1].get("spanToLine") == to_line and
+                 span[1].get("spanToColumn") >= to_col))
+            )]
+
     def highlight_type(self, types):
         """
         ide-backend gives us a wealth of type info for the cursor. We only use the first,
@@ -548,12 +559,19 @@ class StackIDE:
         """
         if types:
             # Display the first type in a region and in the status bar
-            [type_string, span] = types[0]
-            span = Span.from_json(span, self.window)
-
+            view = self.window.active_view()
+            region = view.sel()[0]
+            (from_line_, from_col_) = view.rowcol(region.begin())
+            (to_line_, to_col_) = view.rowcol(region.end())
+            [type_string, type_span] = self.filter_enclosing(
+                from_col_+1, to_col_+1,
+                from_line_+1, to_line_+1,
+                types)[0]
+            span = Span.from_json(type_span, self.window)
             if span:
-                span.view.set_status("type_at_cursor", type_string)
-                span.view.add_regions("type_at_cursor", [span.region], "storage.type", "", sublime.DRAW_OUTLINED)
+                view.show_popup(type_string) #types.join("<br>"))
+                view.set_status("type_at_cursor", type_string)
+                view.add_regions("type_at_cursor", [span.region], "storage.type", "", sublime.DRAW_OUTLINED)
         else:
             # Clear type-at-cursor display
             for view in self.window.views():
