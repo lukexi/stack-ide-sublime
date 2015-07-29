@@ -541,7 +541,6 @@ class StackIDE:
         self.window.run_command("update_completions", {"completions":completions})
 
     def filter_enclosing(_,from_col, to_col, from_line, to_line, spans):
-        # return spans
         return [span for span in spans if 
             (   ((span[1].get("spanFromLine")<from_line) or 
                 (span[1].get("spanFromLine") == from_line and
