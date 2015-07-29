@@ -1,0 +1,6 @@
+[
+    {
+        "caption": "SublimeStackIDE: Restart",
+        "command": "restart_stack_ide"
+    }
+]

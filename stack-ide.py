@@ -277,8 +277,18 @@ class SendStackIdeRequestCommand(sublime_plugin.WindowCommand):
         if instance:
             instance.send_request(request)
 
-
-        
+##########################
+# Application Commands
+##########################
+class RestartStackIde(sublime_plugin.ApplicationCommand):
+    """
+    Restarts the StackIDE plugin. 
+    Useful for forcing StackIDE to pick up project changes, until we implement it properly.
+    Accessible via the Command Palette (Cmd/Ctrl-Shift-p)
+    as "SublimeStackIDE: Restart"
+    """
+    def run(self):
+        StackIDE.reset()
 
 class StackIDE:
     ide_backend_instances = {}
