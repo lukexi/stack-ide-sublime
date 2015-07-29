@@ -4,5 +4,9 @@
 
   // Controls the messages sent to the console.
   // Possible values: "none", "error", "warning", "normal", "debug".
-  ,"verbosity": "warning" 
+  ,"verbosity": "warning"
+
+  // If "show_popup" is true, a popup will appear right below selection
+  // to show the type in addition to the text shown in the status bar
+  ,"show_popup": false
 }

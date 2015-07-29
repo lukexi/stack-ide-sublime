@@ -569,7 +569,8 @@ class StackIDE:
                 types)[0]
             span = Span.from_json(type_span, self.window)
             if span:
-                view.show_popup(type_string) #types.join("<br>"))
+                if Settings.show_popup():
+                    view.show_popup(type_string)
                 view.set_status("type_at_cursor", type_string)
                 view.add_regions("type_at_cursor", [span.region], "storage.type", "", sublime.DRAW_OUTLINED)
         else:
@@ -767,6 +768,11 @@ class Settings:
         val = cls._get("add_to_PATH", [])
         if not isinstance(val,list):
             val = []
+        return val
+
+    @classmethod
+    def show_popup(cls):
+        val = cls._get("show_popup", False)
         return val
 
     @classmethod
