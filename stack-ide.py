@@ -581,7 +581,7 @@ class StackIDE:
                 if Settings.show_popup():
                     view.show_popup(type_string)
                 view.set_status("type_at_cursor", type_string)
-                view.add_regions("type_at_cursor", [span.region], "storage.type", "", sublime.DRAW_OUTLINED)
+                view.add_regions("type_at_cursor", [span.in_view.region], "storage.type", "", sublime.DRAW_OUTLINED)
         else:
             # Clear type-at-cursor display
             for view in self.window.views():
@@ -626,17 +626,18 @@ class StackIDE:
             error_panel.run_command("update_error_panel", {"message":message})
 
             # Collect error and warning spans by view for annotations
-            if span:
+            span_view = span.in_view if span else None
+            if span_view:
                 # Log.debug("Adding error at "+ str(span) + ": " + str(error.get("errorMsg")))
                 kind = error.get("errorKind")
                 if kind == "KindWarning":
-                    warning_regions_for_view = warnings_by_view_id.get(span.view.id(), [])
-                    warning_regions_for_view += [span.region]
-                    warnings_by_view_id[span.view.id()] = warning_regions_for_view
+                    warning_regions_for_view = warnings_by_view_id.get(span_view.view.id(), [])
+                    warning_regions_for_view += [span_view.region]
+                    warnings_by_view_id[span_view.view.id()] = warning_regions_for_view
                 else:
-                    error_regions_for_view = errors_by_view_id.get(span.view.id(), [])
-                    error_regions_for_view += [span.region]
-                    errors_by_view_id[span.view.id()] = error_regions_for_view
+                    error_regions_for_view = errors_by_view_id.get(span_view.view.id(), [])
+                    error_regions_for_view += [span_view.region]
+                    errors_by_view_id[span_view.view.id()] = error_regions_for_view
 
             else:
                 Log.warning("Unhandled error tag type: ", proper_span)
@@ -672,6 +673,19 @@ class Span:
     """
     Represents the Stack-IDE 'span' type
     """
+
+    class InView:
+        """
+        When a span corresponds to a file being displayed in a view,
+        this object holds the position of the span inside that view.
+        """
+
+        def __init__(self, view, from_point, to_point, region):
+            self.view           = view
+            self.from_point     = from_point
+            self.to_point       = to_point
+            self.region         = region
+
     @classmethod
     def from_json(cls, span, window):
         file_path    = span.get("spanFilePath")
@@ -684,24 +698,24 @@ class Span:
 
         full_path    = first_folder(window) + "/" + file_path
         view         = window.find_open_file(full_path)
+        if view is None:
+            in_view = None
+        else:
+            from_point = view.text_point(from_line - 1, from_column - 1)
+            to_point   = view.text_point(to_line   - 1, to_column   - 1)
+            region     = sublime.Region(from_point, to_point)
 
-        from_point = view.text_point(from_line - 1, from_column - 1)
-        to_point   = view.text_point(to_line   - 1, to_column   - 1)
-        region     = sublime.Region(from_point, to_point)
+            in_view    = Span.InView(view, from_point, to_point, region)
 
-        return Span(from_line, from_column, to_line, to_column, full_path, view, from_point, to_point, region)
-        return None
+        return Span(from_line, from_column, to_line, to_column, full_path, in_view)
 
-    def __init__(self, from_line, from_column, to_line, to_column, full_path, view, from_point, to_point, region):
+    def __init__(self, from_line, from_column, to_line, to_column, full_path, in_view):
         self.from_line      = from_line
         self.from_column    = from_column
         self.to_line        = to_line
         self.to_column      = to_column
         self.full_path      = full_path
-        self.view           = view
-        self.from_point     = from_point
-        self.to_point       = to_point
-        self.region         = region
+        self.in_view        = in_view
 
     def as_error_message(self, error):
         kind      = error.get("errorKind")
