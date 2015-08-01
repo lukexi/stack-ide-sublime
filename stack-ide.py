@@ -9,8 +9,8 @@ import json
 #############################
 # Plugin development utils
 #############################
-# Ensure existing processes are killed when we 
-# save the plugin to prevent proliferation of 
+# Ensure existing processes are killed when we
+# save the plugin to prevent proliferation of
 # stack-ide session.13953 folders
 
 watchdog = None
@@ -118,7 +118,7 @@ class UpdateErrorPanelCommand(sublime_plugin.TextCommand):
 
 class StackIDESaveListener(sublime_plugin.EventListener):
     """
-    Ask stack-ide to recompile the saved source file, 
+    Ask stack-ide to recompile the saved source file,
     then request a report of source errors.
     """
     def on_post_save(self, view):
@@ -143,7 +143,7 @@ class StackIDESaveListener(sublime_plugin.EventListener):
 
 class StackIDETypeAtCursorHandler(sublime_plugin.EventListener):
     """
-    Ask stack-ide for the type at the cursor each 
+    Ask stack-ide for the type at the cursor each
     time it changes position.
     """
     def on_selection_modified(self, view):
@@ -156,8 +156,8 @@ class StackIDETypeAtCursorHandler(sublime_plugin.EventListener):
         if view.file_name():
             # Uncomment to see the scope at the cursor:
             # Log.debug(view.scope_name(view.sel()[0].begin()))
-            request = { 
-                "tag": "RequestGetExpTypes", 
+            request = {
+                "tag": "RequestGetExpTypes",
                 "contents" :  span_from_view_selection(view)
                 }
             send_request(view, request)
@@ -178,9 +178,9 @@ class StackIDEAutocompleteHandler(sublime_plugin.EventListener):
         # another request for completions.
         if not view.settings().get("refreshing_auto_complete"):
             request = {
-                "tag":"RequestGetAutocompletion", 
+                "tag":"RequestGetAutocompletion",
                 "contents": {
-                        "autocompletionFilePath": relative_view_file_name(view), 
+                        "autocompletionFilePath": relative_view_file_name(view),
                         "autocompletionPrefix": prefix
                     }
                 }
@@ -195,8 +195,8 @@ class StackIDEAutocompleteHandler(sublime_plugin.EventListener):
         # be displayed in italics to the right of the name.
         def annotation_from_completion(completion):
             return "\t".join(
-                filter(lambda x: x is not None, 
-                    map(completion.get, 
+                filter(lambda x: x is not None,
+                    map(completion.get,
                         ["autocompletionInfoName", "autocompletionType", "autocompletionInfoDefinedIn"])))
 
         annotations = map(annotation_from_completion, self.returned_completions)
@@ -224,7 +224,7 @@ class StackIDEAutocompleteHandler(sublime_plugin.EventListener):
             # Log.debug("INTERCEPTED:\n " + str(completions) + "\n")
             self.returned_completions = completions
 
-            # Hide the auto_complete popup so we can reopen it, 
+            # Hide the auto_complete popup so we can reopen it,
             # triggering a new on_query_completions
             # call to pickup our new self.returned_completions.
             window.active_view().run_command('hide_auto_complete')
@@ -232,8 +232,8 @@ class StackIDEAutocompleteHandler(sublime_plugin.EventListener):
             def reactivate():
                 # We read this in on_query_completions to prevent sending a duplicate
                 # request for completions when we're only trying to re-trigger the completions
-                # popup; otherwise we get an infinite loop of 
-                #   autocomplete > request completions > receive response > close/reopen to refresh 
+                # popup; otherwise we get an infinite loop of
+                #   autocomplete > request completions > receive response > close/reopen to refresh
                 # > autocomplete > request completions > etc.
                 window.active_view().settings().set("refreshing_auto_complete", True)
                 window.active_view().run_command('auto_complete', {
@@ -282,7 +282,7 @@ class SendStackIdeRequestCommand(sublime_plugin.WindowCommand):
 ##########################
 class RestartStackIde(sublime_plugin.ApplicationCommand):
     """
-    Restarts the StackIDE plugin. 
+    Restarts the StackIDE plugin.
     Useful for forcing StackIDE to pick up project changes, until we implement it properly.
     Accessible via the Command Palette (Cmd/Ctrl-Shift-p)
     as "SublimeStackIDE: Restart"
@@ -464,7 +464,7 @@ class StackIDE:
 
         self.stdoutThread = threading.Thread(target=self.read_stdout)
         self.stdoutThread.start()
-        
+
         self.stderrThread = threading.Thread(target=self.read_stderr)
         self.stderrThread.start()
 
@@ -551,11 +551,11 @@ class StackIDE:
         self.window.run_command("update_completions", {"completions":completions})
 
     def filter_enclosing(_,from_col, to_col, from_line, to_line, spans):
-        return [span for span in spans if 
-            (   ((span[1].get("spanFromLine")<from_line) or 
+        return [span for span in spans if
+            (   ((span[1].get("spanFromLine")<from_line) or
                 (span[1].get("spanFromLine") == from_line and
                  span[1].get("spanFromColumn") <= from_col))
-            and ((span[1].get("spanToLine")>to_line) or 
+            and ((span[1].get("spanToLine")>to_line) or
                 (span[1].get("spanToLine") == to_line and
                  span[1].get("spanToColumn") >= to_col))
             )]
@@ -599,7 +599,7 @@ class StackIDE:
         # This turns on double-clickable error/warning messages in the error panel
         # using a regex that looks for the form file_name:line:column
         error_panel.settings().set("result_file_regex","^(..[^:]*):([0-9]+):?([0-9]+)?:? (.*)$")
-        
+
         # Seems to force the panel to refresh after we clear it:
         self.window.run_command("hide_panel", {"panel":"output.hide_errors"})
         # Clear the panel
@@ -649,14 +649,14 @@ class StackIDE:
             view.add_regions("errors", error_regions, "invalid", "dot", sublime.DRAW_OUTLINED)
             warning_regions = warnings_by_view_id.get(view.id(), [])
             view.add_regions("warnings", warning_regions, "comment", "dot", sublime.DRAW_OUTLINED)
-                
+
         if errors:
             # Show the panel
             self.window.run_command("show_panel", {"panel":"output.hide_errors"})
         else:
             # Hide the panel
             self.window.run_command("hide_panel", {"panel":"output.hide_errors"})
-        
+
         error_panel.set_read_only(True)
 
     def __del__(self):
