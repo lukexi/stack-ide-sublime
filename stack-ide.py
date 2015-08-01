@@ -540,11 +540,11 @@ class StackIDE:
                 elif response == "ResponseWelcome":
                     expected_version = (0,1,0)
                     version_got = tuple(contents) if type(contents) is list else contents
-                    if expected_version >= version_got:
+                    if expected_version > version_got:
                         Log.error("Old stack-ide protocol:", version_got, '\n', 'Want version:', expected_version)
                         StackIDE.complain("wrong-stack-ide-version",
                             "Please upgrade stack-ide to a newer version.")
-                    elif expected_version <= version_got:
+                    elif expected_version < version_got:
                         Log.warning("stack-ide protocol may have changed:", version_got)
                     else:
                         Log.debug("stack-ide protocol version:", version_got)
