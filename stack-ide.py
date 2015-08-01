@@ -292,7 +292,7 @@ class RestartStackIde(sublime_plugin.ApplicationCommand):
 
 class StackIDE:
     ide_backend_instances = {}
-    can_complain_about_stack_not_found = True
+    complaints_shown = set()
 
     @classmethod
     def check_windows(cls):
@@ -349,7 +349,11 @@ class StackIDE:
                 except FileNotFoundError as e:
                     instance = NoStackIDE("instance init failed -- stack not found")
                     Log.error(e)
-                    StackIDE.report_stack_not_found()
+                    cls.complain('stack-not-found',
+                        "Could not find program 'stack'!\n\n"
+                        "Make sure that 'stack' and 'stack-ide' are both installed. "
+                        "If they are not on the system path, edit the 'add_to_PATH' "
+                        "setting in SublimeStackIDE  preferences." )
                 except Exception:
                     instance = NoStackIDE("instance init failed -- unknown error")
                     Log.error("Failed to initialize window " + str(window.id()) + ":")
@@ -397,20 +401,20 @@ class StackIDE:
         """
         Log.normal("Resetting StackIDE")
         cls.kill_all()
-        cls.can_complain_about_stack_not_found = True
+        cls.complaints_shown = set()
 
 
     @classmethod
-    def report_stack_not_found(cls):
-      if StackIDE.can_complain_about_stack_not_found:
-          sublime.error_message(
-              "Could not find program 'stack'!\n\n"
-              "Make sure that 'stack' and 'stack-ide' are both installed. "
-              "If they are not on the system path, edit the 'add_to_PATH' "
-              "setting in SublimeStackIDE  preferences." )
+    def complain(cls,complaint_id,msg):
+       """
+       Show the msg as an error message (on a modal pop-up). The complaint_id is
+       used to decide when we have already complained about something, so that
+       we don't do it again (until reset)
+       """
+       if complaint_id not in cls.complaints_shown:
+           cls.complaints_shown.add(complaint_id)
+           sublime.error_message(msg)
 
-          # Let's not annoy the user again
-          StackIDE.can_complain_about_stack_not_found = False
 
     def __init__(self, window):
         self.window = window
