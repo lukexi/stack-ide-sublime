@@ -536,6 +536,17 @@ class StackIDE:
                 elif response == "ResponseGetExpTypes":
                     if contents != None:
                         sublime.set_timeout(lambda: self.highlight_type(contents), 0)
+                # Check that stack-ide talks a version of the protocal we understand
+                elif response == "ResponseWelcome":
+                    expected_version = [0,1,0]
+                    if expected_version >= contents:
+                        Log.error("Old stack-ide protocol:", contents)
+                        StackIDE.complain("wrong-stack-ide-version",
+                            "Please upgrade stack-ide to a newer version.")
+                    elif expected_version <= contents:
+                        Log.warning("stack-ide protocol may have changed:", contents)
+                    else:
+                        Log.debug("stack-ide protocol version:", contents)
                 else:
                     Log.normal("Unhandled response: ", data)
 
