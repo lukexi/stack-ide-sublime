@@ -5,6 +5,7 @@ import threading
 import time
 import traceback
 import json
+import uuid
 
 #############################
 # Plugin development utils
@@ -68,12 +69,21 @@ def relative_view_file_name(view):
     """
     return view.file_name().replace(first_folder(view.window()) + "/", "")
 
-def send_request(view, request):
+def get_window(view_or_window):
     """
-    Call the view's window's SendStackIDERequestCommand instance with the given request.
+    Accepts a View or a Window and returns the Window
     """
-    if StackIDE.is_running(view.window()):
-        StackIDE.for_window(view.window()).send_request(request)
+    return view_or_window.window() if hasattr(view_or_window, 'window') else view_or_window
+
+
+def send_request(view_or_window, request, on_response = None):
+    """
+    Sends the given request to the (view's) window's stack-ide instance,
+    optionally handling its response
+    """
+    window = get_window(view_or_window)
+    if StackIDE.is_running(window):
+        StackIDE.for_window(window).send_request(request, on_response)
 
 def span_from_view_selection(view):
     return span_from_view_region(view, view.sel()[0])
@@ -139,7 +149,7 @@ class StackIDESaveListener(sublime_plugin.EventListener):
         #         ]
         #     }
         send_request(view, request)
-        send_request(view, { "tag": "RequestGetSourceErrors", "contents":[] })
+        send_request(view, StackIDE.Req.get_source_errors(),Win(view).highlight_errors)
 
 class StackIDETypeAtCursorHandler(sublime_plugin.EventListener):
     """
@@ -156,11 +166,8 @@ class StackIDETypeAtCursorHandler(sublime_plugin.EventListener):
         if view.file_name():
             # Uncomment to see the scope at the cursor:
             # Log.debug(view.scope_name(view.sel()[0].begin()))
-            request = {
-                "tag": "RequestGetExpTypes",
-                "contents" :  span_from_view_selection(view)
-                }
-            send_request(view, request)
+            request = StackIDE.Req.get_exp_types(span_from_view_selection(view))
+            send_request(view, request, Win(view).highlight_type)
 
 class StackIDEAutocompleteHandler(sublime_plugin.EventListener):
     """
@@ -177,14 +184,8 @@ class StackIDEAutocompleteHandler(sublime_plugin.EventListener):
         # after receiving a response from stack-ide, and if so, don't send
         # another request for completions.
         if not view.settings().get("refreshing_auto_complete"):
-            request = {
-                "tag":"RequestGetAutocompletion",
-                "contents": {
-                        "autocompletionFilePath": relative_view_file_name(view),
-                        "autocompletionPrefix": prefix
-                    }
-                }
-            send_request(view, request)
+            request = StackIDE.Req.get_autocompletion(filepath=relative_view_file_name(view),prefix=prefix)
+            send_request(view, request, Win(view).update_completions)
 
         # Clear the flag to uninhibit future completion queries
         view.settings().set("refreshing_auto_complete", False)
@@ -294,6 +295,25 @@ class StackIDE:
     ide_backend_instances = {}
     complaints_shown = set()
 
+    class Req:
+        @staticmethod
+        def get_source_errors():
+            return {"tag": "RequestGetSourceErrors", "contents":[]}
+
+        @staticmethod
+        def get_exp_types(exp_span):
+            return { "tag": "RequestGetExpTypes", "contents" :  exp_span }
+
+        @staticmethod
+        def get_autocompletion(filepath,prefix):
+            return {
+                "tag":"RequestGetAutocompletion",
+                "contents": {
+                        "autocompletionFilePath": filepath,
+                        "autocompletionPrefix": prefix
+                    }
+                }
+
     @classmethod
     def check_windows(cls):
         """
@@ -366,9 +386,9 @@ class StackIDE:
             # to avoid any accidental blocking....
             def kick_off():
               Log.normal("Kicking off window", window.id())
-              window.run_command(
-                "send_stack_ide_request"
-              ,{"request": { "tag": "RequestGetSourceErrors", "contents":[] }}
+              send_request(window,
+                request     = StackIDE.Req.get_source_errors(),
+                on_response = Win(window).highlight_errors
               )
             sublime.set_timeout_async(kick_off,300)
 
@@ -418,14 +438,21 @@ class StackIDE:
 
     def __init__(self, window):
         self.window = window
+        self.conts = {} # Map from uuid to response handler
         self.is_alive  = True
         self.is_active = False
         self.process   = None
         self.boot_ide_backend()
         self.is_active = True
 
-    def send_request(self, request):
+    def send_request(self, request, response_handler = None):
         if self.process:
+            if response_handler is not None:
+                seq_id = str(uuid.uuid4())
+                self.conts[seq_id] = response_handler
+                request = request.copy()
+                request['seq'] = seq_id
+
             try:
                 Log.debug("Sending request: ", request)
                 encodedString = json.JSONEncoder().encode(request) + "\n"
@@ -516,29 +543,19 @@ class StackIDE:
 
                 response = data.get("tag")
                 contents = data.get("contents")
+                seq_id   = data.get("seq")
 
-                # Pass progress messages to the status bar
-                if response == "ResponseUpdateSession":
-                    if contents != None:
-                        progressMessage = contents.get("progressParsedMsg")
-                        if progressMessage:
-                            sublime.status_message(progressMessage)
-                # Pass autocompletion responses to the completions handler
-                # (via our window command hack - see note in on_window_command)
-                elif response == "ResponseGetAutocompletion":
-                    if contents != None:
-                        sublime.set_timeout(lambda: self.update_completions(contents), 0)
-                # Pass source error responses to the error highlighter
-                elif response == "ResponseGetSourceErrors":
-                    if contents != None:
-                        sublime.set_timeout(lambda: self.highlight_errors(contents), 0)
-                # Pass type information to the type highlighter
-                elif response == "ResponseGetExpTypes":
-                    if contents != None:
-                        sublime.set_timeout(lambda: self.highlight_type(contents), 0)
+                if seq_id is not None:
+                    handler = self.conts.get(seq_id)
+                    del self.conts[seq_id]
+                    if handler is not None:
+                        if contents is not None:
+                            sublime.set_timeout(lambda:handler(contents), 0)
+                    else:
+                        Log.warning("Handler not found for seq", seq_id)
                 # Check that stack-ide talks a version of the protocal we understand
                 elif response == "ResponseWelcome":
-                    expected_version = (0,1,0)
+                    expected_version = (0,1,1)
                     version_got = tuple(contents) if type(contents) is list else contents
                     if expected_version > version_got:
                         Log.error("Old stack-ide protocol:", version_got, '\n', 'Want version:', expected_version)
@@ -548,6 +565,12 @@ class StackIDE:
                         Log.warning("stack-ide protocol may have changed:", version_got)
                     else:
                         Log.debug("stack-ide protocol version:", version_got)
+                # # Pass progress messages to the status bar
+                elif response == "ResponseUpdateSession":
+                    if contents != None:
+                        progressMessage = contents.get("progressParsedMsg")
+                        if progressMessage:
+                            sublime.status_message(progressMessage)
                 else:
                     Log.normal("Unhandled response: ", data)
 
@@ -557,6 +580,44 @@ class StackIDE:
                 self.process = None
                 return;
         Log.normal("Stack-IDE stdout process ended.")
+
+    def __del__(self):
+        if self.process:
+            try:
+                self.process.terminate()
+            except ProcessLookupError:
+                # it was already done...
+                pass
+            finally:
+                self.process = None
+
+
+class NoStackIDE:
+    """
+    Objects of this class are used for windows that don't have an associated stack-ide process
+    (e.g., because initialization failed or they are not being monitored)
+    """
+
+    def __init__(self, reason):
+        self.is_alive = True
+        self.is_active = False
+        self.reason = reason
+
+    def end(self):
+        self.is_alive = False
+
+    def __str__(self):
+        return 'NoStackIDE(' + self.reason + ')'
+
+
+class Win:
+    """
+    Operations on Sublime windows that are relevant to us
+    """
+
+    def __init__(self,view_or_window):
+        self.window = get_window(view_or_window)
+
 
     def update_completions(self, completions):
         """
@@ -675,15 +736,6 @@ class StackIDE:
 
         error_panel.set_read_only(True)
 
-    def __del__(self):
-        if self.process:
-            try:
-                self.process.terminate()
-            except ProcessLookupError:
-                # it was already done...
-                pass
-            finally:
-                self.process = None
 
 class Span:
     """
@@ -743,24 +795,6 @@ class Span:
             from_column=self.from_column,
             kind=kind,
             msg=error_msg)
-
-class NoStackIDE:
-    """
-    Objects of this class are used for windows that don't have an associated stack-ide process
-    (e.g., because initialization failed or they are not being monitored)
-    """
-
-    def __init__(self, reason):
-        self.is_alive = True
-        self.is_active = False
-        self.reason = reason
-
-    def end(self):
-        self.is_alive = False
-
-    def __str__(self):
-        return 'NoStackIDE(' + self.reason + ')'
-
 
 
 class Settings:
