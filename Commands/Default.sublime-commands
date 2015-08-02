@@ -2,5 +2,9 @@
     {
         "caption": "SublimeStackIDE: Restart",
         "command": "restart_stack_ide"
+    },
+    {
+        "caption": "SublimeStackIDE: Show type",
+        "command": "show_hs_type_at_cursor"
     }
 ]

@@ -1,3 +1,8 @@
 [
     { "keys": ["ctrl+e"], "command": "show_panel", "args": {"panel": "output.hide_errors"} },
+    {
+       "keys": ["ctrl+t","ctrl+t"], "command": "show_hs_type_at_cursor", "context": [
+         {"key": "selector", "operator": "equal", "operand": "source.haskell"}
+       ]
+    }
 ]

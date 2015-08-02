@@ -103,6 +103,34 @@ def module_name_for_view(view):
     module_name = view.substr(view.find("^module [A-Za-z._]*", 0)).replace("module ", "")
     return module_name
 
+def filter_enclosing(from_col, to_col, from_line, to_line, spans):
+    return [span for span in spans if
+        (   ((span[1].get("spanFromLine")<from_line) or
+            (span[1].get("spanFromLine") == from_line and
+             span[1].get("spanFromColumn") <= from_col))
+        and ((span[1].get("spanToLine")>to_line) or
+            (span[1].get("spanToLine") == to_line and
+             span[1].get("spanToColumn") >= to_col))
+        )]
+
+def type_info_for_sel(view,types):
+    """
+    Takes the type spans returned from a get_exp_types request and returns a
+    tuple (type_string,type_span) of the main expression
+    """
+    result = None
+    if view and types:
+        region = view.sel()[0]
+        (from_line_, from_col_) = view.rowcol(region.begin())
+        (to_line_, to_col_) = view.rowcol(region.end())
+        [type_string, type_span] = filter_enclosing(
+            from_col_+1, to_col_+1,
+            from_line_+1, to_line_+1,
+            types)[0]
+        result = (type_string, type_span)
+    return result
+
+
 
 #############################
 # Text commands
@@ -121,6 +149,22 @@ class UpdateErrorPanelCommand(sublime_plugin.TextCommand):
     """
     def run(self, edit, message):
         self.view.insert(edit, self.view.size(), message + "\n\n")
+
+class ShowHsTypeAtCursorCommand(sublime_plugin.TextCommand):
+    """
+    A show_hs_type_at_cursor command, that requests the type of the
+    expression under the cursor and, if available, shows it as a pop-up.
+    """
+    def run(self,edit):
+        request = StackIDE.Req.get_exp_types(span_from_view_selection(self.view))
+
+        send_request(self.view,request, self._handle_response)
+
+    def _handle_response(self,response):
+        info = type_info_for_sel(self.view,response)
+        if info:
+            (type_str,type_span) = info
+            self.view.show_popup(type_str)
 
 #############################
 # Event Listeners
@@ -627,15 +671,6 @@ class Win:
         """
         self.window.run_command("update_completions", {"completions":completions})
 
-    def filter_enclosing(_,from_col, to_col, from_line, to_line, spans):
-        return [span for span in spans if
-            (   ((span[1].get("spanFromLine")<from_line) or
-                (span[1].get("spanFromLine") == from_line and
-                 span[1].get("spanFromColumn") <= from_col))
-            and ((span[1].get("spanToLine")>to_line) or
-                (span[1].get("spanToLine") == to_line and
-                 span[1].get("spanToColumn") >= to_col))
-            )]
 
     def highlight_type(self, types):
         """
@@ -646,13 +681,7 @@ class Win:
         if types:
             # Display the first type in a region and in the status bar
             view = self.window.active_view()
-            region = view.sel()[0]
-            (from_line_, from_col_) = view.rowcol(region.begin())
-            (to_line_, to_col_) = view.rowcol(region.end())
-            [type_string, type_span] = self.filter_enclosing(
-                from_col_+1, to_col_+1,
-                from_line_+1, to_line_+1,
-                types)[0]
+            (type_string,type_span) = type_info_for_sel(view,types)
             span = Span.from_json(type_span, self.window)
             if span:
                 if Settings.show_popup():
