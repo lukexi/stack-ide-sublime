@@ -152,12 +152,11 @@ class UpdateErrorPanelCommand(sublime_plugin.TextCommand):
 
 class ShowHsTypeAtCursorCommand(sublime_plugin.TextCommand):
     """
-    A show_hs_type_at_cursor command, that requests the type of the
+    A show_hs_type_at_cursor command that requests the type of the
     expression under the cursor and, if available, shows it as a pop-up.
     """
     def run(self,edit):
         request = StackIDE.Req.get_exp_types(span_from_view_selection(self.view))
-
         send_request(self.view,request, self._handle_response)
 
     def _handle_response(self,response):

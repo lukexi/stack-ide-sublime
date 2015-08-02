@@ -4,7 +4,7 @@
         "command": "restart_stack_ide"
     },
     {
-        "caption": "SublimeStackIDE: Show type",
+        "caption": "SublimeStackIDE: Show Type",
         "command": "show_hs_type_at_cursor"
     }
 ]
