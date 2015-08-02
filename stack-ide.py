@@ -165,6 +165,22 @@ class ShowHsTypeAtCursorCommand(sublime_plugin.TextCommand):
             (type_str,type_span) = info
             self.view.show_popup(type_str)
 
+class CopyHsTypeAtCursorCommand(sublime_plugin.TextCommand):
+    """
+    A copy_hs_type_at_cursor command that requests the type of the
+    expression under the cursor and, if available, puts it in the clipboard.
+    """
+    def run(self,edit):
+        request = StackIDE.Req.get_exp_types(span_from_view_selection(self.view))
+        send_request(self.view,request, self._handle_response)
+
+    def _handle_response(self,response):
+        info = type_info_for_sel(self.view,response)
+        if info:
+            (type_str,type_span) = info
+            sublime.set_clipboard(type_str)
+
+
 #############################
 # Event Listeners
 #############################

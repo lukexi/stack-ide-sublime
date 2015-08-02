@@ -2,9 +2,13 @@
     {
         "caption": "SublimeStackIDE: Restart",
         "command": "restart_stack_ide"
-    },
-    {
+    }
+,   {
         "caption": "SublimeStackIDE: Show Type",
         "command": "show_hs_type_at_cursor"
+    }
+,   {
+        "caption": "SublimeStackIDE: Copy Type to Clipboard",
+        "command": "copy_hs_type_at_cursor"
     }
 ]
