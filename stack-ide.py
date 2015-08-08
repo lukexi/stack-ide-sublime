@@ -547,7 +547,7 @@ class StackIDE:
 
         Log.debug("Calling stack with PATH:", alt_env['PATH'] if alt_env else os.environ['PATH'])
 
-        self.process = subprocess.Popen(["stack", "ide", project_name],
+        self.process = subprocess.Popen(["stack", "ide", "start", project_name],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             cwd=first_folder(self.window), env=alt_env
             )
