@@ -595,9 +595,15 @@ class StackIDE:
                 raw = self.process.stdout.readline().decode('UTF-8')
                 if not raw:
                     return
-                # Log.debug("Raw response: ", raw)
+                
 
-                data = json.loads(raw)
+                data = None
+                try:
+                    data = json.loads(raw)
+                except:
+                    Log.debug("Got a non-JSON response: ", raw)
+                    continue
+
                 Log.debug("Got response: ", data)
 
                 response = data.get("tag")
