@@ -228,6 +228,21 @@ class StackIDETypeAtCursorHandler(sublime_plugin.EventListener):
             request = StackIDE.Req.get_exp_types(span_from_view_selection(view))
             send_request(view, request, Win(view).highlight_type)
 
+def get_keypath(a_dict, keypath):
+    """
+    Extracts a keypath from a nested dictionary, e.g.
+    >>> get_keypath({"hey":{"there":"kid"}}, ["hey", "there"])
+    'kid'
+    Returns None if the keypath doesn't exist.
+    """
+    value = a_dict
+    path = keypath
+    while value and path:
+        if not type(value) is dict: return None
+        value = value.get(path[0])
+        path = path[1:]
+    return value
+
 class StackIDEAutocompleteHandler(sublime_plugin.EventListener):
     """
     Dispatches autocompletion requests to stack-ide.
@@ -253,14 +268,18 @@ class StackIDEAutocompleteHandler(sublime_plugin.EventListener):
         # where annotation is <name>\t<hint1>\t<hint2>
         # where hint1/hint2/etc. are optional auxiliary information that will
         # be displayed in italics to the right of the name.
+        module_keypath = ["idScope", "idImportedFrom", "moduleName"]
+        type_keypath   = ["idProp", "idType"]
+        name_keypath   = ["idProp", "idName"]
+        keypaths       = [name_keypath, type_keypath, module_keypath]
         def annotation_from_completion(completion):
             return "\t".join(
                 filter(lambda x: x is not None,
-                    map(completion.get,
-                        ["autocompletionInfoName", "autocompletionType", "autocompletionInfoDefinedIn"])))
+                    map(lambda keypath: get_keypath(completion, keypath),
+                        keypaths)))
 
         annotations = map(annotation_from_completion, self.returned_completions)
-        names       = map(lambda x: x.get("autocompletionInfoName"),    self.returned_completions)
+        names       = map(lambda completion: get_keypath(completion, name_keypath), self.returned_completions)
 
         annotated_completions = list(zip(annotations, names))
         Log.debug("Returning: ", annotated_completions)
@@ -367,10 +386,10 @@ class StackIDE:
         def get_autocompletion(filepath,prefix):
             return {
                 "tag":"RequestGetAutocompletion",
-                "contents": {
-                        "autocompletionFilePath": filepath,
-                        "autocompletionPrefix": prefix
-                    }
+                "contents": [
+                        filepath,
+                        prefix
+                    ]
                 }
 
     @classmethod
