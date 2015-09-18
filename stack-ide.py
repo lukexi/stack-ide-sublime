@@ -6,6 +6,7 @@ import time
 import traceback
 import json
 import uuid
+import glob
 
 #############################
 # Plugin development utils
@@ -62,6 +63,26 @@ def first_folder(window):
     else:
         Log.normal("Couldn't find a folder for stack-ide-sublime")
         return None
+
+def has_cabal_file(project_path):
+    """
+    Check if a cabal file exists in the project folder
+    """
+    files = glob.glob(os.path.join(project_path, "*.cabal"))
+    return len(files) > 0
+
+def expected_cabalfile(project_path):
+    """
+    The cabalfile should have the same name as the directory it resides in (stack ide limitation?)
+    """
+    (_, project_name) = os.path.split(project_path)
+    return os.path.join(project_path, project_name + ".cabal")
+
+def is_stack_project(project_path):
+    """
+    Determine if a stack.yaml exists in the given directory.
+    """
+    return os.path.isfile(os.path.join(project_path, "stack.yaml"))
 
 def relative_view_file_name(view):
     """
@@ -430,15 +451,31 @@ class StackIDE:
         # Thw windows remaining in current_windows are new, so they have no instance.
         # We try to create one for them
         for window in current_windows.values():
-            if not first_folder(window):
-                # Make sure there is a folder to monitor
+            folder = first_folder(window)
 
-                # TODO make sure there is a .cabal file present,
-                # (or stack.yaml, or whatever stack-ide supports)
-                # We should also support single files, which should get their own StackIDE instance
-                # which would then be per-view. Have a registry per-view that we check, then check the window.
+            if not folder:
+                # Make sure there is a folder to monitor
                 Log.normal("No folder to monitor for window ", window.id())
                 instance = NoStackIDE("window folder not being monitored")
+
+            elif not has_cabal_file(folder):
+
+                Log.normal("No cabal file found in ", folder)
+                instance = NoStackIDE("window folder not being monitored")
+
+            elif not os.path.isfile(expected_cabalfile(folder)):
+
+                Log.warning("Expected cabal file", expected_cabalfile(folder), "not found")
+                instance = NoStackIDE("window folder not being monitored")
+
+            elif not is_stack_project(folder):
+
+                Log.warning("No stack.yaml in path ", folder)
+                instance = NoStackIDE("window folder not being monitored")
+
+                # TODO: We should also support single files, which should get their own StackIDE instance
+                # which would then be per-view. Have a registry per-view that we check, then check the window.
+
             else:
                 try:
                     # If everything looks OK, launch a StackIDE instance
@@ -459,6 +496,10 @@ class StackIDE:
 
             # Cache the instance
             StackIDE.ide_backend_instances[window.id()] = instance
+
+            # Nothing left to do
+            if isinstance(instance, NoStackIDE):
+                continue
 
             # Kick off the process by sending an initial request. We use another thread
             # to avoid any accidental blocking....
@@ -614,7 +655,7 @@ class StackIDE:
                 raw = self.process.stdout.readline().decode('UTF-8')
                 if not raw:
                     return
-                
+
 
                 data = None
                 try:
