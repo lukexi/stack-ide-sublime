@@ -8,6 +8,16 @@
         "command": "show_hs_type_at_cursor"
     }
 ,   {
+        "caption": "SublimeStackIDE: Show Info",
+        "command": "show_hs_info_at_cursor"
+    }
+,
+    {
+        "caption": "SublimeStackIDE: Goto Definition",
+        "command": "goto_definition_at_cursor"
+    }
+,
+   {
         "caption": "SublimeStackIDE: Copy Type to Clipboard",
         "command": "copy_hs_type_at_cursor"
     }
