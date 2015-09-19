@@ -43,7 +43,7 @@ First check the Sublime Text console with `ctrl-``. You can increase the plugin'
 
 ##### Not working in executable targets
 
-Add modules (eg. Main) to the executable target's `other_modules` list in the cabal file. (see https://github.com/commercialhaskell/stack-ide/issues/28)
+Add modules (eg. Main) to the executable target's `other_modules` list in the cabal file. After restarting Stack IDE you should see the listed modules being compiled (see https://github.com/commercialhaskell/stack-ide/issues/28)
 
 ##### Error "can't find file: /Users/myself/first-project/Lib" in the console
 
