@@ -32,7 +32,7 @@ and [stack-ide](https://github.com/commercialhaskell/stack-ide).
 
 Add the following to your global User Preferences *(Sublime Text -> Preferences -> Settings - User)*:
 
-`"folder_exclude_patterns": [".stack-work", "session.*"],`
+`"folder_exclude_patterns": [".git", ".svn", "CVS", ".stack-work", "session.*"],`
 
 
 ### Troubleshooting
