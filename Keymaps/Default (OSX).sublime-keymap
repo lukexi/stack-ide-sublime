@@ -1,5 +1,14 @@
 [
-    { "keys": ["ctrl+e"], "command": "show_panel", "args": {"panel": "output.hide_errors"} }
+
+    { "keys": ["ctrl+e"], "command": "show_panel", "args": {"panel": "output.hide_errors"} },
+    { "keys": ["ctrl+i"], "command": "show_hs_info_at_cursor", "context": [
+         {"key": "selector", "operator": "equal", "operand": "source.haskell"}
+       ]
+    }
+,   { "keys": ["ctrl+d"], "command": "goto_definition_at_cursor", "context": [
+         {"key": "selector", "operator": "equal", "operand": "source.haskell"}
+       ]
+    }
 ,   {
        "keys": ["super+t","super+t"], "command": "show_hs_type_at_cursor", "context": [
          {"key": "selector", "operator": "equal", "operand": "source.haskell"}
