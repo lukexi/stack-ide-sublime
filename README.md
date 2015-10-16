@@ -3,7 +3,7 @@
 Sublime Text plugin for [stack-ide](https://github.com/commercialhaskell/stack-ide)
 
 **Bleeding edge note:** 
-Requires `stack` 0.1.4+, `stack-ide` 0.1+, `ide-backend` HEAD and GHC 7.10+.
+Requires `stack` 0.1.6+, `stack-ide` 0.1+, `ide-backend` HEAD and GHC 7.10+.
 
 `stack-ide-sublime` also requires for the moment that you are opening the same folder that holds the `.cabal` file, and that the folder is named the same as the `.cabal` file.
 
@@ -16,7 +16,10 @@ and [stack-ide](https://github.com/commercialhaskell/stack-ide).
 `(cd "~/Library/Application Support/Sublime Text 3/Packages"; git clone https://github.com/lukexi/stack-ide-sublime.git SublimeStackIDE)`
 
 **On Linux** install this package with the following command:
-`(cd ~/.config/sublime-text-3/Packages; git clone https://github.com/lukexi/stack-ide-sublime.git  SublimeStackIDE)`
+`(cd ~/.config/sublime-text-3/Packages; git clone https://github.com/lukexi/stack-ide-sublime.git SublimeStackIDE)`
+
+**On Windows** install this package with the following command:
+`(cd $APPDATA/Sublime\ Text\ 3/Packages/; git clone https://github.com/lukexi/stack-ide-sublime.git SublimeStackIDE)`
 
 
 ### Screenshots

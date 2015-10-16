@@ -1,3 +1,5 @@
+[ ] Use `stack ide load-targets` asynchronously at startup (and maybe with a key command) and have it pass its results into update_session_includes at startup. We can keep the current "on save, add to update_session_includes", but we should keep a persistent list of them so we always pass the full list. We may need a "clear" command with this approach, in case you save two modules containing a main function, for example (is there a better way?).
+
 [ ] Implement tooltips for type and doc information.
     See here for Sublime Text API:
     https://www.sublimetext.com/forum/viewtopic.php?f=2&t=17583&start=40

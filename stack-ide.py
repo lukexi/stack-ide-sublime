@@ -294,21 +294,7 @@ class StackIDESaveListener(sublime_plugin.EventListener):
     def on_post_save(self, view):
         if not StackIDE.is_running(view.window()):
             return
-        request = {
-            "tag":"RequestUpdateSession",
-            "contents": []
-            }
-        # This works to load the saved file into stack-ide, but since it doesn't the include dirs
-        # (we don't have the API for that yet, though it wouldn't be hard to add) it won't see any modules.
-        # request = {
-        #     "tag":"RequestUpdateSession",
-        #     "contents":
-        #         [ { "tag": "RequestUpdateTargets",
-        #             "contents": {"tag": "TargetsInclude", "contents":[ relative_view_file_name(view) ]}
-        #           }
-        #         ]
-        #     }
-        send_request(view, request)
+        send_request(view, StackIDE.Req.update_session_includes([relative_view_file_name(view)]))
         send_request(view, StackIDE.Req.get_source_errors(),Win(view).highlight_errors)
 
 class StackIDETypeAtCursorHandler(sublime_plugin.EventListener):
@@ -476,6 +462,17 @@ class StackIDE:
 
     class Req:
         @staticmethod
+        def update_session_includes(filepaths):
+            return {
+                "tag":"RequestUpdateSession",
+                "contents":
+                    [ { "tag": "RequestUpdateTargets",
+                        "contents": {"tag": "TargetsInclude", "contents": filepaths }
+                      }
+                    ]
+                }
+
+        @staticmethod
         def get_source_errors():
             return {"tag": "RequestGetSourceErrors", "contents":[]}
 
@@ -587,13 +584,13 @@ class StackIDE:
 
             # Kick off the process by sending an initial request. We use another thread
             # to avoid any accidental blocking....
-            def kick_off():
-              Log.normal("Kicking off window", window.id())
-              send_request(window,
-                request     = StackIDE.Req.get_source_errors(),
-                on_response = Win(window).highlight_errors
-              )
-            sublime.set_timeout_async(kick_off,300)
+            # def kick_off():
+            #   Log.normal("Kicking off window", window.id())
+            #   send_request(window,
+            #     request     = StackIDE.Req.get_source_errors(),
+            #     on_response = Win(window).highlight_errors
+            #   )
+            # sublime.set_timeout_async(kick_off,300)
 
 
     @classmethod
@@ -682,6 +679,9 @@ class StackIDE:
 
         # Assumes the library target name is the same as the project dir
         (project_in, project_name) = os.path.split(first_folder(self.window))
+
+        # load_targets_raw = subprocess.check_output(["stack", "ide", "load-targets", project_name])
+        # load_targets = load_targets.splitlines()
 
         # Extend the search path if indicated
         alt_env = os.environ.copy()
