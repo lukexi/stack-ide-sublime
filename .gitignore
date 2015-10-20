@@ -1,6 +1,6 @@
 session.*/
 *.pyc
-__pychache__
+__pycache__
 htmlcov
 *.log
 *.coverage
