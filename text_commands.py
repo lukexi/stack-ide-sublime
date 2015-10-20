@@ -4,6 +4,7 @@ from SublimeStackIDE.utility import *
 from SublimeStackIDE.req import *
 from SublimeStackIDE.stack_ide import *
 from SublimeStackIDE.stack_ide_manager import *
+from SublimeStackIDE import response as res
 
 class ClearErrorPanelCommand(sublime_plugin.TextCommand):
     """
@@ -29,10 +30,10 @@ class ShowHsTypeAtCursorCommand(sublime_plugin.TextCommand):
         send_request(self.view,request, self._handle_response)
 
     def _handle_response(self,response):
-        info = type_info_for_sel(self.view,response)
-        if info:
-            (type_str,type_span) = info
-            self.view.show_popup(type_str)
+        types = list(res.parse_exp_types(response))
+        if types:
+            (type, span) = types[0] # types are ordered by relevance?
+            self.view.show_popup(type)
 
 
 class ShowHsInfoAtCursorCommand(sublime_plugin.TextCommand):
@@ -42,23 +43,23 @@ class ShowHsInfoAtCursorCommand(sublime_plugin.TextCommand):
     """
     def run(self,edit):
         request = Req.get_exp_info(span_from_view_selection(self.view))
-        send_request(self.view,request, self._handle_response)
+        send_request(self.view, request, self._handle_response)
 
     def _handle_response(self,response):
 
         if len(response) < 1:
            return
 
-        contents = response[0][0]["contents"]
-        info = parse_info_result(response[0][0]["contents"])
+        infos = res.parse_span_info_response(response)
+        (props, scope), span = next(infos)
 
-        if info.file:
-            source = "(Defined in {}:{}:{})".format(info.file, info.line, info.col)
-        elif info.module:
-            source = "(Imported from {})".format(info.module)
+        if not props.defSpan is None:
+            source = "(Defined in {}:{}:{})".format(props.defSpan.filePath, props.defSpan.fromLine, props.defSpan.fromColumn)
+        elif scope.importedFrom:
+            source = "(Imported from {})".format(scope.importedFrom.module)
 
-        self.view.show_popup("{} :: {}  {}".format(info.name,
-                                                    info.type,
+        self.view.show_popup("{} :: {}  {}".format(props.name,
+                                                    props.type,
                                                     source))
 
 
@@ -74,47 +75,19 @@ class GotoDefinitionAtCursorCommand(sublime_plugin.TextCommand):
     def _handle_response(self,response):
 
         if len(response) < 1:
-           return
+            return
 
-        info = parse_info_result(response[0][0]["contents"])
+        infos = parse_span_info_response(response)
+        (props, scope), span = next(infos)
         window = self.view.window()
-        if info.file:
-            full_path = os.path.join(first_folder(window), info.file)
+        if props.defSpan:
+            full_path = os.path.join(first_folder(window), props.defSpan.filePath)
             window.open_file(
-              '{}:{}:{}'.format(full_path, info.line or 0, info.col or 0), sublime.ENCODED_POSITION)
-        elif info.module:
-            sublime.status_message("Cannot navigate to {}, it is imported from {}".format(info.name, info.module))
+            '{}:{}:{}'.format(full_path, props.defSpan.fromLine or 0, props.defSpan.fromColumn or 0), sublime.ENCODED_POSITION)
+        elif scope.importedFrom:
+            sublime.status_message("Cannot navigate to {}, it is imported from {}".format(props.name, scope.importedFrom.module))
         else:
-            sublime.status_message("{} not found!", info.name)
-
-def parse_info_result(contents):
-    """
-    Extracts reponse into a reusable expression info object
-    """
-    module_keypath = ["idScope", "idImportedFrom", "moduleName"]
-    type_keypath   = ["idProp", "idType"]
-    name_keypath   = ["idProp", "idName"]
-    def_file_keypath   = ["idProp", "idDefSpan", "contents", "spanFilePath"]
-    def_line_keypath      = ["idProp", "idDefSpan", "contents", "spanFromLine"]
-    def_col_keypath       = ["idProp", "idDefSpan", "contents", "spanFromColumn"]
-
-    return ExpressionInfo(get_keypath(contents, name_keypath),
-                            get_keypath(contents, type_keypath),
-                            get_keypath(contents, module_keypath),
-                            get_keypath(contents, def_file_keypath),
-                            get_keypath(contents, def_line_keypath),
-                            get_keypath(contents, def_col_keypath))
-
-class ExpressionInfo():
-
-    def __init__(self, name, type, module, file, line, col):
-        self.name = name
-        self.type = type
-        self.module = module
-        self.file = file
-        self.line = line
-        self.col = col
-
+            sublime.status_message("{} not found!", props.name)
 
 class CopyHsTypeAtCursorCommand(sublime_plugin.TextCommand):
     """
@@ -126,7 +99,7 @@ class CopyHsTypeAtCursorCommand(sublime_plugin.TextCommand):
         send_request(self.view,request, self._handle_response)
 
     def _handle_response(self,response):
-        info = type_info_for_sel(self.view,response)
-        if info:
-            (type_str,type_span) = info
-            sublime.set_clipboard(type_str)
+        types = list(res.parse_exp_types(response))
+        if types:
+            (type, span) = types[0] # types are ordered by relevance?
+            sublime.set_clipboard(type)

@@ -6,6 +6,7 @@ from SublimeStackIDE.log import *
 from SublimeStackIDE.win import *
 from SublimeStackIDE.stack_ide import *
 from SublimeStackIDE.stack_ide_manager import *
+from SublimeStackIDE import response as res
 
 
 class StackIDESaveListener(sublime_plugin.EventListener):
@@ -58,27 +59,14 @@ class StackIDEAutocompleteHandler(sublime_plugin.EventListener):
 
         # Clear the flag to uninhibit future completion queries
         view.settings().set("refreshing_auto_complete", False)
+        return list(self.format_completion(*completion) for completion in self.returned_completions)
 
-        # Sublime Text 3 expects completions in the form of [(annotation, name)],
-        # where annotation is <name>\t<hint1>\t<hint2>
-        # where hint1/hint2/etc. are optional auxiliary information that will
-        # be displayed in italics to the right of the name.
-        module_keypath = ["idScope", "idImportedFrom", "moduleName"]
-        type_keypath   = ["idProp", "idType"]
-        name_keypath   = ["idProp", "idName"]
-        keypaths       = [name_keypath, type_keypath, module_keypath]
-        def annotation_from_completion(completion):
-            return "\t".join(
-                filter(lambda x: x is not None,
-                    map(lambda keypath: get_keypath(completion, keypath),
-                        keypaths)))
 
-        annotations = map(annotation_from_completion, self.returned_completions)
-        names       = map(lambda completion: get_keypath(completion, name_keypath), self.returned_completions)
-
-        annotated_completions = list(zip(annotations, names))
-        Log.debug("Returning: ", annotated_completions)
-        return annotated_completions
+    def format_completion(self, prop, scope):
+        return ["{}\t{}\t{}".format(prop.name,
+                                    prop.type or '',
+                                    scope.importedFrom.module if scope else ''),
+                 prop.name]
 
 
     def on_window_command(self, window, command_name, args):
@@ -96,7 +84,7 @@ class StackIDEAutocompleteHandler(sublime_plugin.EventListener):
         completions = args.get("completions")
         if command_name == "update_completions" and completions:
             # Log.debug("INTERCEPTED:\n " + str(completions) + "\n")
-            self.returned_completions = completions
+            self.returned_completions = list(res.parse_autocompletions(completions))
 
             # Hide the auto_complete popup so we can reopen it,
             # triggering a new on_query_completions

@@ -1,5 +1,10 @@
 import glob
 import os
+try:
+    import sublime
+except ImportError:
+    import test.stubs.sublime as sublime
+
 def first_folder(window):
     """
     We only support running one stack-ide instance per window currently,
@@ -46,6 +51,19 @@ def get_window(view_or_window):
 def span_from_view_selection(view):
     return span_from_view_region(view, view.sel()[0])
 
+def view_region_from_span(view, span):
+    """
+    Maps a SourceSpan to a Region for a given view.
+
+    :param sublime.View view: The view to create regions for
+    :param SourceSpan span: The span to map to a region
+    :rtype sublime.Region: The created Region
+
+    """
+    from_point = view.text_point(span.fromLine - 1, span.fromColumn - 1)
+    to_point = view.text_point(span.toLine - 1, span.toColumn - 1)
+    return sublime.Region(from_point, to_point)
+
 def span_from_view_region(view, region):
     (from_line, from_col) = view.rowcol(region.begin())
     (to_line,   to_col)   = view.rowcol(region.end())
@@ -56,49 +74,3 @@ def span_from_view_region(view, region):
         "spanToLine": to_line + 1,
         "spanToColumn": to_col + 1
         }
-
-def get_keypath(a_dict, keypath):
-    """
-    Extracts a keypath from a nested dictionary, e.g.
-    >>> get_keypath({"hey":{"there":"kid"}}, ["hey", "there"])
-    'kid'
-    Returns None if the keypath doesn't exist.
-    """
-    value = a_dict
-    path = keypath
-    while value and path:
-        if not type(value) is dict: return None
-        value = value.get(path[0])
-        path = path[1:]
-    return value
-
-def module_name_for_view(view):
-    module_name = view.substr(view.find("^module [A-Za-z._]*", 0)).replace("module ", "")
-    return module_name
-
-def filter_enclosing(from_col, to_col, from_line, to_line, spans):
-    return [span for span in spans if
-        (   ((span[1].get("spanFromLine")<from_line) or
-            (span[1].get("spanFromLine") == from_line and
-             span[1].get("spanFromColumn") <= from_col))
-        and ((span[1].get("spanToLine")>to_line) or
-            (span[1].get("spanToLine") == to_line and
-             span[1].get("spanToColumn") >= to_col))
-        )]
-
-def type_info_for_sel(view,types):
-    """
-    Takes the type spans returned from a get_exp_types request and returns a
-    tuple (type_string,type_span) of the main expression
-    """
-    result = None
-    if view and types:
-        region = view.sel()[0]
-        (from_line_, from_col_) = view.rowcol(region.begin())
-        (to_line_, to_col_) = view.rowcol(region.end())
-        [type_string, type_span] = filter_enclosing(
-            from_col_+1, to_col_+1,
-            from_line_+1, to_line_+1,
-            types)[0]
-        result = (type_string, type_span)
-    return result
