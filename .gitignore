@@ -1,3 +1,7 @@
 session.*/
-
+*.pyc
+__pychache__
+htmlcov
+*.log
+*.coverage
 autocomplete-output.json
