@@ -1,5 +1,6 @@
 import sublime_plugin
 from SublimeStackIDE.stack_ide import *
+from SublimeStackIDE.stack_ide_manager import *
 
 class UpdateCompletionsCommand(sublime_plugin.WindowCommand):
     """
@@ -25,7 +26,7 @@ class SendStackIdeRequestCommand(sublime_plugin.WindowCommand):
         Pass a request to stack-ide.
         Called via run_command("send_stack_ide_request", {"request":})
         """
-        instance = StackIDE.for_window(self.window)
+        instance = StackIDEManager.for_window(self.window)
         if instance:
             instance.send_request(request)
 

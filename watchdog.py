@@ -1,5 +1,6 @@
 
 from SublimeStackIDE.stack_ide import *
+from SublimeStackIDE.stack_ide_manager import *
 from SublimeStackIDE.settings import *
 
 #############################
@@ -17,7 +18,7 @@ def plugin_loaded():
 def plugin_unloaded():
     global watchdog
     watchdog.kill()
-    StackIDE.reset()
+    StackIDEManager.reset()
     Log.reset()
     Settings.reset()
     watchdog = None
@@ -35,7 +36,7 @@ class StackIDEWatchdog():
         self.check_for_processes()
 
     def check_for_processes(self):
-        StackIDE.check_windows()
+        StackIDEManager.check_windows()
         self.timer = threading.Timer(1.0, self.check_for_processes)
         self.timer.start()
 

@@ -5,6 +5,7 @@ from SublimeStackIDE.req import *
 from SublimeStackIDE.log import *
 from SublimeStackIDE.win import *
 from SublimeStackIDE.stack_ide import *
+from SublimeStackIDE.stack_ide_manager import *
 
 
 class StackIDESaveListener(sublime_plugin.EventListener):
@@ -13,10 +14,10 @@ class StackIDESaveListener(sublime_plugin.EventListener):
     then request a report of source errors.
     """
     def on_post_save(self, view):
-        if not StackIDE.is_running(view.window()):
+        if not StackIDEManager.is_running(view.window()):
             return
 
-        ide = StackIDE.for_window(view.window())
+        ide = StackIDEManager.for_window(view.window())
         new_include_targets = ide.update_new_include_targets([relative_view_file_name(view)])
         send_request(view, Req.update_session_includes(new_include_targets))
         send_request(view, Req.get_source_errors(), Win(view).highlight_errors)
@@ -30,7 +31,7 @@ class StackIDETypeAtCursorHandler(sublime_plugin.EventListener):
     def on_selection_modified(self, view):
         if not view:
             return
-        if not StackIDE.is_running(view.window()):
+        if not StackIDEManager.is_running(view.window()):
             return
         # Only try to get types for views into files
         # (rather than e.g. the find field or the console pane)
@@ -50,7 +51,7 @@ class StackIDEAutocompleteHandler(sublime_plugin.EventListener):
         self.returned_completions = []
 
     def on_query_completions(self, view, prefix, locations):
-        if not StackIDE.is_running(view.window()):
+        if not StackIDEManager.is_running(view.window()):
             return
         # Check if this completion query is due to our refreshing the completions list
         # after receiving a response from stack-ide, and if so, don't send
@@ -92,7 +93,7 @@ class StackIDEAutocompleteHandler(sublime_plugin.EventListener):
         completions to returned_completions to then, finally, return the next time on_query_completions
         is called.
         """
-        if not StackIDE.is_running(window):
+        if not StackIDEManager.is_running(window):
             return
         if args == None:
             return None

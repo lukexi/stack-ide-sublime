@@ -3,6 +3,7 @@ import sublime, sublime_plugin
 from SublimeStackIDE.utility import *
 from SublimeStackIDE.req import *
 from SublimeStackIDE.stack_ide import *
+from SublimeStackIDE.stack_ide_manager import *
 
 class ClearErrorPanelCommand(sublime_plugin.TextCommand):
     """
