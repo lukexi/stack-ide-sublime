@@ -17,11 +17,7 @@ class StackIDESaveListener(sublime_plugin.EventListener):
         if not StackIDEManager.is_running(view.window()):
             return
 
-        ide = StackIDEManager.for_window(view.window())
-        new_include_targets = ide.update_new_include_targets([relative_view_file_name(view)])
-        send_request(view, Req.update_session_includes(new_include_targets))
-        send_request(view, Req.get_source_errors(), Win(view).highlight_errors)
-
+        StackIDEManager.for_window(view.window()).update_files([relative_view_file_name(view)])
 
 class StackIDETypeAtCursorHandler(sublime_plugin.EventListener):
     """

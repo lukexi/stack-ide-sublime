@@ -19,16 +19,23 @@ class Span:
             self.region         = region
 
     @classmethod
-    def from_json(cls, span, window):
+    def get_full_path(cls, span, window):
         file_path    = span.get("spanFilePath")
         if file_path == None:
+            return None
+        full_path    = first_folder(window) + "/" + file_path
+        return full_path
+
+    @classmethod
+    def from_json(cls, span, window):
+        full_path    = Span.get_full_path(span, window)
+        if full_path == None:
             return None
         from_line    = span.get("spanFromLine")
         from_column  = span.get("spanFromColumn")
         to_line      = span.get("spanToLine")
         to_column    = span.get("spanToColumn")
 
-        full_path    = first_folder(window) + "/" + file_path
         view         = window.find_open_file(full_path)
         if view is None:
             in_view = None

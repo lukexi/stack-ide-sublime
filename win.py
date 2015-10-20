@@ -47,12 +47,35 @@ class Win:
         """
         Places errors in the error panel, and highlights the relevant regions for each error.
         """
+        # First, make sure we have views open for each error
+        need_load_wait = False
+        for error in errors:
+            span = None
+            proper_span = error.get("errorSpan")
+            if proper_span.get("tag") == "ProperSpan":
+                contents = proper_span.get("contents")
+                full_path = Span.get_full_path(contents, self.window)
+                if not self.window.find_open_file(full_path):
+                    need_load_wait = True
+                self.window.open_file(full_path)
+
+        # If any error-holding files need to be opened, wait briefly to 
+        # make sure the file is loaded before trying to annotate it
+        if need_load_wait:
+            sublime.set_timeout(lambda: self.highlight_errors_really(errors), 100)
+        else:
+            self.highlight_errors_really(errors)
+
+    def highlight_errors_really(self, errors):
+        """
+        Places errors in the error panel, and highlights the relevant regions for each error.
+        """
         error_panel = self.window.create_output_panel("hide_errors")
         error_panel.set_read_only(False)
 
         # This turns on double-clickable error/warning messages in the error panel
         # using a regex that looks for the form file_name:line:column
-        error_panel.settings().set("result_file_regex","^(..[^:]*):([0-9]+):?([0-9]+)?:? (.*)$")
+        error_panel.settings().set("result_file_regex", "^(..[^:]*):([0-9]+):?([0-9]+)?:? (.*)$")
 
         # Seems to force the panel to refresh after we clear it:
         self.window.run_command("hide_panel", {"panel":"output.hide_errors"})
@@ -64,12 +87,13 @@ class Win:
         errors_by_view_id = {}
         warnings_by_view_id = {}
         for error in errors:
-            proper_span = error.get("errorSpan")
-
             # Stack-ide can return different kinds of Spans for errors; we only support ProperSpans currently
             span = None
+            proper_span = error.get("errorSpan")
             if proper_span.get("tag") == "ProperSpan":
-                span = Span.from_json(proper_span.get("contents"), self.window)
+                contents = proper_span.get("contents")
+                # Construct the span from the JSON
+                span = Span.from_json(contents, self.window)
 
             # Text commands only accept Value types, so we perform the conversion of the error span to a string here
             # to pass to update_error_panel.

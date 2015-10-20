@@ -12,6 +12,7 @@ from SublimeStackIDE.span import *
 from SublimeStackIDE.utility import *
 from SublimeStackIDE.req import *
 from SublimeStackIDE.log import *
+from SublimeStackIDE.win import *
 
 
 class StackIDE:
@@ -67,9 +68,6 @@ class StackIDE:
         # Assumes the library target name is the same as the project dir
         (project_in, project_name) = os.path.split(first_folder(self.window))
 
-        # load_targets_raw = subprocess.check_output(["stack", "ide", "load-targets", project_name])
-        # load_targets = load_targets.splitlines()
-
         # Extend the search path if indicated
         alt_env = os.environ.copy()
         add_to_PATH = Settings.add_to_PATH()
@@ -88,6 +86,24 @@ class StackIDE:
 
         self.stderrThread = threading.Thread(target=self.read_stderr)
         self.stderrThread.start()
+
+        # Asynchronously get the initial list of files to check
+        def load_initial_targets():
+
+            proc = subprocess.Popen(["stack", "ide", "load-targets", project_name],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                cwd=first_folder(self.window), env=alt_env, universal_newlines=True
+                )
+            outs, errs = proc.communicate()
+            initial_targets = outs.splitlines()
+            sublime.set_timeout(lambda: self.update_files(initial_targets), 0)
+
+        sublime.set_timeout_async(load_initial_targets, 0)
+        
+    def update_files(self, filenames):
+        new_include_targets = self.update_new_include_targets(filenames)
+        self.send_request(Req.update_session_includes(new_include_targets))
+        self.send_request(Req.get_source_errors(), Win(self.window).highlight_errors)
 
     def end(self):
         """
