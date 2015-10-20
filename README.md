@@ -1,5 +1,5 @@
 
-![build status](https://travis-ci.org/tomv564/stack-ide-sublime.svg)
+![build status](https://travis-ci.org/lukexi/stack-ide-sublime.svg)
 
 # stack-ide-sublime
 
