@@ -1,6 +1,6 @@
 
 ![build status](https://travis-ci.org/lukexi/stack-ide-sublime.svg)
-[![Coverage Status](https://coveralls.io/repos/tomv564/stack-ide-sublime/badge.svg?branch=extract_parsing&service=github)](https://coveralls.io/github/tomv564/stack-ide-sublime?branch=extract_parsing)
+[![Coverage Status](https://coveralls.io/repos/lukexi/stack-ide-sublime/badge.svg?branch=master&service=github)](https://coveralls.io/github/lukexi/stack-ide-sublime?branch=master)
 
 # stack-ide-sublime
 

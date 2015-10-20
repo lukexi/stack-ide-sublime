@@ -3,7 +3,12 @@ import os
 try:
     import sublime
 except ImportError:
-    import test.stubs.sublime as sublime
+    from test.stubs import sublime
+
+import sys
+sys.path.append(os.path.dirname(os.path.realpath(__file__)))
+
+from log import Log
 
 def first_folder(window):
     """

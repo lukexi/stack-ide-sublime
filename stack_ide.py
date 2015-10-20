@@ -1,23 +1,29 @@
-import sublime
+try:
+    import sublime
+except ImportError:
+    from test.stubs import sublime
+
 import subprocess, os
 import sys
 import threading
 import json
 import uuid
 
-from SublimeStackIDE.settings import *
-from SublimeStackIDE.span import *
-from SublimeStackIDE.utility import *
-from SublimeStackIDE.req import *
-from SublimeStackIDE.log import *
-from SublimeStackIDE.win import *
-import SublimeStackIDE.response as res
+sys.path.append(os.path.dirname(os.path.realpath(__file__)))
+
+from span import *
+from utility import *
+from req import *
+from log import *
+from win import *
+import response as res
 
 class StackIDE:
 
 
-    def __init__(self, window):
+    def __init__(self, window, settings):
         self.window = window
+        self.settings = settings
         self.conts = {} # Map from uuid to response handler
         self.is_alive  = True
         self.is_active = False
@@ -68,9 +74,8 @@ class StackIDE:
 
         # Extend the search path if indicated
         alt_env = os.environ.copy()
-        add_to_PATH = Settings.add_to_PATH()
-        if len(add_to_PATH) > 0:
-          alt_env["PATH"] = os.pathsep.join(add_to_PATH + [alt_env.get("PATH","")])
+        if len(self.settings.add_to_PATH) > 0:
+          alt_env["PATH"] = os.pathsep.join(self.settings.add_to_PATH + [alt_env.get("PATH","")])
 
         Log.debug("Calling stack with PATH:", alt_env['PATH'] if alt_env else os.environ['PATH'])
 
