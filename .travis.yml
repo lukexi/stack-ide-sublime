@@ -3,7 +3,12 @@ python:
   - "3.4"
 
 # command to install dependencies
-install: ""
+install:
+  - pip install coverage
+  - pip install coveralls
 
 # command to run tests
-script: python -m unittest -v
+script: coverage run --omit="test/*" -m unittest
+
+# publish results
+after_success: coveralls

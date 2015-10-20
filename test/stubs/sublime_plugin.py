@@ -1,4 +1,3 @@
-# import mock
 
 class TextCommand():
 

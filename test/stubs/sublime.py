@@ -29,10 +29,6 @@ class Settings():
         return default
 
 
-# class FakeBackend():
-
-
-
 class FakeWindow():
 
     def __init__(self, folder):
@@ -75,5 +71,3 @@ class Region():
     def __init__(self, start, end):
         self.start = start
         self.end = end
-
-

@@ -3,7 +3,7 @@ import os
 try:
     import sublime
 except ImportError:
-    import mocks.sublime as sublime
+    import test.stubs.sublime as sublime
 
 def first_folder(window):
     """
