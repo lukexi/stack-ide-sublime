@@ -4,4 +4,6 @@ __pycache__
 htmlcov
 *.log
 *.coverage
+.stack-work
+*.sublime-workspace
 autocomplete-output.json

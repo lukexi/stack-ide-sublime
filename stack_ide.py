@@ -1,9 +1,7 @@
-import sublime, sublime_plugin
+import sublime
 import subprocess, os
 import sys
 import threading
-import time
-import traceback
 import json
 import uuid
 
@@ -13,10 +11,10 @@ from SublimeStackIDE.utility import *
 from SublimeStackIDE.req import *
 from SublimeStackIDE.log import *
 from SublimeStackIDE.win import *
-
+import SublimeStackIDE.response as res
 
 class StackIDE:
-    
+
 
     def __init__(self, window):
         self.window = window
@@ -99,11 +97,11 @@ class StackIDE:
             sublime.set_timeout(lambda: self.update_files(initial_targets), 0)
 
         sublime.set_timeout_async(load_initial_targets, 0)
-        
+
     def update_files(self, filenames):
         new_include_targets = self.update_new_include_targets(filenames)
         self.send_request(Req.update_session_includes(new_include_targets))
-        self.send_request(Req.get_source_errors(), Win(self.window).highlight_errors)
+        self.send_request(Req.get_source_errors(), Win(self.window).handle_source_errors)
 
     def end(self):
         """
@@ -151,43 +149,7 @@ class StackIDE:
                     Log.debug("Got a non-JSON response: ", raw)
                     continue
 
-                Log.debug("Got response: ", data)
-
-                response = data.get("tag")
-                contents = data.get("contents")
-                seq_id   = data.get("seq")
-
-                if seq_id is not None:
-                    handler = self.conts.get(seq_id)
-                    del self.conts[seq_id]
-                    if handler is not None:
-                        if contents is not None:
-                            sublime.set_timeout(lambda:handler(contents), 0)
-                    else:
-                        Log.warning("Handler not found for seq", seq_id)
-
-                # Check that stack-ide talks a version of the protocal we understand
-                elif response == "ResponseWelcome":
-                    expected_version = (0,1,1)
-                    version_got = tuple(contents) if type(contents) is list else contents
-                    if expected_version > version_got:
-                        Log.error("Old stack-ide protocol:", version_got, '\n', 'Want version:', expected_version)
-                        StackIDE.complain("wrong-stack-ide-version",
-                            "Please upgrade stack-ide to a newer version.")
-                    elif expected_version < version_got:
-                        Log.warning("stack-ide protocol may have changed:", version_got)
-                    else:
-                        Log.debug("stack-ide protocol version:", version_got)
-
-                # Pass progress messages to the status bar
-                elif response == "ResponseUpdateSession":
-                    if contents != None:
-                        progressMessage = contents.get("progressParsedMsg")
-                        if progressMessage:
-                            sublime.status_message(progressMessage)
-
-                else:
-                    Log.normal("Unhandled response: ", data)
+                self.handle_response(data)
 
             except:
                 Log.warning("Stack-IDE stdout process ending due to exception: ", sys.exc_info())
@@ -195,6 +157,56 @@ class StackIDE:
                 self.process = None
                 return;
         Log.normal("Stack-IDE stdout process ended.")
+
+    def handle_response(self, data):
+        """
+        Handles JSON responses from the backend
+        """
+
+        Log.debug("Got response: ", data)
+
+        tag = data.get("tag")
+        contents = data.get("contents")
+        seq_id   = data.get("seq")
+
+        if seq_id is not None:
+            handler = self.conts.get(seq_id)
+            del self.conts[seq_id]
+            if handler is not None:
+                if contents is not None:
+                    sublime.set_timeout(lambda:handler(contents), 0)
+            else:
+                Log.warning("Handler not found for seq", seq_id)
+
+        # Check that stack-ide talks a version of the protocal we understand
+        elif tag == "ResponseWelcome":
+            expected_version = (0,1,1)
+            version_got = tuple(contents) if type(contents) is list else contents
+            if expected_version > version_got:
+                Log.error("Old stack-ide protocol:", version_got, '\n', 'Want version:', expected_version)
+                StackIDE.complain("wrong-stack-ide-version",
+                    "Please upgrade stack-ide to a newer version.")
+            elif expected_version < version_got:
+                Log.warning("stack-ide protocol may have changed:", version_got)
+            else:
+                Log.debug("stack-ide protocol version:", version_got)
+
+        # Pass progress messages to the status bar
+        elif tag == "ResponseUpdateSession":
+            self._handle_update_session(contents)
+
+        else:
+            Log.normal("Unhandled response: ", data)
+
+
+    def _handle_update_session(self, update_session):
+        """
+        Show a status message for session progress updates.
+        """
+        msg = res.parse_update_session(update_session)
+        if msg:
+            sublime.status_message(msg)
+
 
     def __del__(self):
         if self.process:
