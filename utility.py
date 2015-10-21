@@ -10,6 +10,22 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 
 from log import Log
 
+complaints_shown = set()
+def complain(id, text):
+    """
+    Show the msg as an error message (on a modal pop-up). The complaint_id is
+    used to decide when we have already complained about something, so that
+    we don't do it again (until reset)
+    """
+    if id not in complaints_shown:
+        complaints_shown.add(id)
+        sublime.error_message(text)
+
+def reset_complaints():
+    global complaints_shown
+    complaints_shown = set()
+
+
 def first_folder(window):
     """
     We only support running one stack-ide instance per window currently,
@@ -47,14 +63,11 @@ def relative_view_file_name(view):
     """
     return view.file_name().replace(first_folder(view.window()) + "/", "")
 
-def get_window(view_or_window):
-    """
-    Accepts a View or a Window and returns the Window
-    """
-    return view_or_window.window() if hasattr(view_or_window, 'window') else view_or_window
-
 def span_from_view_selection(view):
     return span_from_view_region(view, view.sel()[0])
+
+def is_haskell_view(view):
+    return view.match_selector(view.sel()[0].begin(), "source.haskell")
 
 def view_region_from_span(view, span):
     """

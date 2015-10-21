@@ -1,6 +1,6 @@
 import sublime_plugin
 
-from SublimeStackIDE.stack_ide_manager import *
+from SublimeStackIDE.stack_ide_manager import StackIDEManager
 
 
 class RestartStackIde(sublime_plugin.ApplicationCommand):

@@ -1,11 +1,12 @@
 from itertools import groupby
+import os
+
 try:
     import sublime
 except ImportError:
     from test.stubs import sublime
-from utility import *
-from span import *
-from response import *
+from utility import first_folder, view_region_from_span
+from response import parse_source_errors, parse_exp_types
 
 class Win:
     """
@@ -14,8 +15,8 @@ class Win:
 
     show_popup = False
 
-    def __init__(self,view_or_window):
-        self.window = get_window(view_or_window)
+    def __init__(self,window):
+        self.window = window
 
     def update_completions(self, completions):
         """
@@ -75,7 +76,7 @@ class Win:
 
         error_panel.set_read_only(True)
 
-        file_errors = filter(lambda error: error.span, errors)
+        file_errors = list(filter(lambda error: error.span, errors))
         # First, make sure we have views open for each error
         need_load_wait = False
         paths = set(error.span.filePath for error in file_errors)

@@ -4,20 +4,19 @@ import os
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 
-from stack_ide import *
+from stack_ide import StackIDE
 from log import Log
-from utility import *
+from utility import first_folder,expected_cabalfile,has_cabal_file, is_stack_project, complain, reset_complaints
 try:
     import sublime
 except ImportError:
     from test.stubs import sublime
 
-def send_request(view_or_window, request, on_response = None):
+def send_request(window, request, on_response = None):
     """
     Sends the given request to the (view's) window's stack-ide instance,
     optionally handling its response
     """
-    window = get_window(view_or_window)
     if StackIDEManager.is_running(window):
         StackIDEManager.for_window(window).send_request(request, on_response)
 
@@ -56,7 +55,7 @@ def configure_instance(window, settings):
         except FileNotFoundError as e:
             instance = NoStackIDE("instance init failed -- stack not found")
             Log.error(e)
-            cls.complain('stack-not-found',
+            complain('stack-not-found',
                 "Could not find program 'stack'!\n\n"
                 "Make sure that 'stack' and 'stack-ide' are both installed. "
                 "If they are not on the system path, edit the 'add_to_PATH' "
@@ -72,8 +71,11 @@ def configure_instance(window, settings):
 
 class StackIDEManager:
     ide_backend_instances = {}
-    complaints_shown = set()
     settings = None
+
+    @classmethod
+    def getinstances(cls):
+        return cls.ide_backend_instances
 
     @classmethod
     def check_windows(cls):
@@ -109,7 +111,6 @@ class StackIDEManager:
                     updated_instances[win_id] = instance
 
         StackIDEManager.ide_backend_instances = updated_instances
-
         # Thw windows remaining in current_windows are new, so they have no instance.
         # We try to create one for them
         for window in current_windows.values():
@@ -144,23 +145,12 @@ class StackIDEManager:
         """
         Log.normal("Resetting StackIDE")
         cls.kill_all()
-        cls.complaints_shown = set()
+        reset_complaints()
         cls.settings = settings
 
     @classmethod
     def configure(cls, settings):
         cls.settings = settings
-
-    @classmethod
-    def complain(cls,complaint_id,msg):
-       """
-       Show the msg as an error message (on a modal pop-up). The complaint_id is
-       used to decide when we have already complained about something, so that
-       we don't do it again (until reset)
-       """
-       if complaint_id not in cls.complaints_shown:
-           cls.complaints_shown.add(complaint_id)
-           sublime.error_message(msg)
 
 
 class NoStackIDE:

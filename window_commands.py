@@ -1,11 +1,9 @@
 try:
     import sublime_plugin
-    from stack_ide import *
-    from stack_ide_manager import *
 except ImportError:
     from test.stubs import sublime_plugin
-    from stack_ide import *
-    from stack_ide_manager import *
+
+from stack_ide_manager import StackIDEManager
 
 class UpdateCompletionsCommand(sublime_plugin.WindowCommand):
     """
