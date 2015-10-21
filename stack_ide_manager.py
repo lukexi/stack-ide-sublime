@@ -55,7 +55,7 @@ def configure_instance(window, settings):
         except FileNotFoundError as e:
             instance = NoStackIDE("instance init failed -- stack not found")
             Log.error(e)
-            cls.complain('stack-not-found',
+            StackIDEManager.complain('stack-not-found',
                 "Could not find program 'stack'!\n\n"
                 "Make sure that 'stack' and 'stack-ide' are both installed. "
                 "If they are not on the system path, edit the 'add_to_PATH' "
@@ -122,7 +122,7 @@ class StackIDEManager:
     def is_running(cls, window):
         if not window:
             return False
-        return cls.for_window(window) is not None
+        return StackIDEManager.for_window(window) is not None
 
 
     @classmethod

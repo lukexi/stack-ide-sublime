@@ -5,10 +5,10 @@ try:
 except ImportError:
     from test.stubs import sublime
 
-from SublimeStackIDE.stack_ide_manager import StackIDEManager
-from SublimeStackIDE.settings import Settings
+from settings import Settings
 from log import Log
 from win import Win
+from stack_ide_manager import StackIDEManager
 
 
 #############################
