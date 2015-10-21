@@ -182,7 +182,6 @@ def boot_ide_backend(folder, env, response_handler):
     process = subprocess.Popen(["stack", "ide", "start", project_name],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         cwd=folder, env=env,
-        universal_newlines=True,
         creationflags=CREATE_NO_WINDOW
         )
 
