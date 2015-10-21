@@ -1,13 +1,18 @@
-import sublime
 from itertools import groupby
-from SublimeStackIDE.utility import *
-from SublimeStackIDE.span import *
-from SublimeStackIDE.response import *
+try:
+    import sublime
+except ImportError:
+    from test.stubs import sublime
+from utility import *
+from span import *
+from response import *
 
 class Win:
     """
     Operations on Sublime windows that are relevant to us
     """
+
+    show_popup = False
 
     def __init__(self,view_or_window):
         self.window = get_window(view_or_window)
@@ -28,22 +33,22 @@ class Win:
         full_path = os.path.join(first_folder(self.window), relative_path)
         self.window.open_file(full_path)
 
-    def highlight_type(self, types):
+    def highlight_type(self, exp_types):
         """
         ide-backend gives us a wealth of type info for the cursor. We only use the first,
         most specific one for now, but it gives us the types all the way out to the topmost
         expression.
         """
+        types = list(parse_exp_types(exp_types))
         if types:
             # Display the first type in a region and in the status bar
             view = self.window.active_view()
-            (type_string,type_span) = type_info_for_sel(view,types)
-            span = Span.from_json(type_span, self.window)
+            (type, span) = types[0]
             if span:
-                if Settings.show_popup():
-                    view.show_popup(type_string)
-                view.set_status("type_at_cursor", type_string)
-                view.add_regions("type_at_cursor", [span.in_view.region], "storage.type", "", sublime.DRAW_OUTLINED)
+                if Win.show_popup:
+                    view.show_popup(type)
+                view.set_status("type_at_cursor", type)
+                view.add_regions("type_at_cursor", [view_region_from_span(view, span)], "storage.type", "", sublime.DRAW_OUTLINED)
         else:
             # Clear type-at-cursor display
             for view in self.window.views():
@@ -70,9 +75,10 @@ class Win:
 
         error_panel.set_read_only(True)
 
+        file_errors = filter(lambda error: error.span, errors)
         # First, make sure we have views open for each error
         need_load_wait = False
-        paths = set(error.span.filePath for error in errors)
+        paths = set(error.span.filePath for error in file_errors)
         for path in paths:
             view = self.find_view_for_path(path)
             if not view:
@@ -82,9 +88,9 @@ class Win:
         # If any error-holding files need to be opened, wait briefly to
         # make sure the file is loaded before trying to annotate it
         if need_load_wait:
-            sublime.set_timeout(lambda: self.highlight_errors(errors), 100)
+            sublime.set_timeout(lambda: self.highlight_errors(file_errors), 100)
         else:
-            self.highlight_errors(errors)
+            self.highlight_errors(file_errors)
 
 
     def reset_error_panel(self):

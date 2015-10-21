@@ -1,7 +1,16 @@
-from SublimeStackIDE.stack_ide import *
-from SublimeStackIDE.log import *
-from SublimeStackIDE.utility import *
-import sublime
+import traceback
+import sys
+import os
+
+sys.path.append(os.path.dirname(os.path.realpath(__file__)))
+
+from stack_ide import *
+from log import Log
+from utility import *
+try:
+    import sublime
+except ImportError:
+    from test.stubs import sublime
 
 def send_request(view_or_window, request, on_response = None):
     """
@@ -12,9 +21,59 @@ def send_request(view_or_window, request, on_response = None):
     if StackIDEManager.is_running(window):
         StackIDEManager.for_window(window).send_request(request, on_response)
 
+def configure_instance(window, settings):
+
+    folder = first_folder(window)
+
+    if not folder:
+        msg = "No folder to monitor for window " + str(window.id())
+        Log.normal("Window {}: {}".format(str(window.id()), msg))
+        instance = NoStackIDE(msg)
+
+    elif not has_cabal_file(folder):
+        msg = "No cabal file found in " + folder
+        Log.normal("Window {}: {}".format(str(window.id()), msg))
+        instance = NoStackIDE(msg)
+
+    elif not os.path.isfile(expected_cabalfile(folder)):
+        msg = "Expected cabal file " + expected_cabalfile(folder) + " not found"
+        Log.normal("Window {}: {}".format(str(window.id()), msg))
+        instance = NoStackIDE(msg)
+
+    elif not is_stack_project(folder):
+        msg = "No stack.yaml in path " + folder
+        Log.warning("Window {}: {}".format(str(window.id()), msg))
+        instance = NoStackIDE(msg)
+
+        # TODO: We should also support single files, which should get their own StackIDE instance
+        # which would then be per-view. Have a registry per-view that we check, then check the window.
+
+    else:
+        try:
+            # If everything looks OK, launch a StackIDE instance
+            Log.normal("Initializing window", window.id())
+            instance = StackIDE(window, settings)
+        except FileNotFoundError as e:
+            instance = NoStackIDE("instance init failed -- stack not found")
+            Log.error(e)
+            cls.complain('stack-not-found',
+                "Could not find program 'stack'!\n\n"
+                "Make sure that 'stack' and 'stack-ide' are both installed. "
+                "If they are not on the system path, edit the 'add_to_PATH' "
+                "setting in SublimeStackIDE  preferences." )
+        except Exception:
+            instance = NoStackIDE("instance init failed -- unknown error")
+            Log.error("Failed to initialize window " + str(window.id()) + ":")
+            Log.error(traceback.format_exc())
+
+
+    return instance
+
+
 class StackIDEManager:
     ide_backend_instances = {}
     complaints_shown = set()
+    settings = None
 
     @classmethod
     def check_windows(cls):
@@ -54,65 +113,7 @@ class StackIDEManager:
         # Thw windows remaining in current_windows are new, so they have no instance.
         # We try to create one for them
         for window in current_windows.values():
-            folder = first_folder(window)
-
-            if not folder:
-                # Make sure there is a folder to monitor
-                Log.normal("No folder to monitor for window ", window.id())
-                instance = NoStackIDE("window folder not being monitored")
-
-            elif not has_cabal_file(folder):
-
-                Log.normal("No cabal file found in ", folder)
-                instance = NoStackIDE("window folder not being monitored")
-
-            elif not os.path.isfile(expected_cabalfile(folder)):
-
-                Log.warning("Expected cabal file", expected_cabalfile(folder), "not found")
-                instance = NoStackIDE("window folder not being monitored")
-
-            elif not is_stack_project(folder):
-
-                Log.warning("No stack.yaml in path ", folder)
-                instance = NoStackIDE("window folder not being monitored")
-
-                # TODO: We should also support single files, which should get their own StackIDE instance
-                # which would then be per-view. Have a registry per-view that we check, then check the window.
-
-            else:
-                try:
-                    # If everything looks OK, launch a StackIDE instance
-                    Log.normal("Initializing window", window.id())
-                    instance = StackIDE(window)
-                except FileNotFoundError as e:
-                    instance = NoStackIDE("instance init failed -- stack not found")
-                    Log.error(e)
-                    cls.complain('stack-not-found',
-                        "Could not find program 'stack'!\n\n"
-                        "Make sure that 'stack' and 'stack-ide' are both installed. "
-                        "If they are not on the system path, edit the 'add_to_PATH' "
-                        "setting in SublimeStackIDE  preferences." )
-                except Exception:
-                    instance = NoStackIDE("instance init failed -- unknown error")
-                    Log.error("Failed to initialize window " + str(window.id()) + ":")
-                    Log.error(traceback.format_exc())
-
-            # Cache the instance
-            StackIDEManager.ide_backend_instances[window.id()] = instance
-
-            # Nothing left to do
-            if isinstance(instance, NoStackIDE):
-                continue
-
-            # Kick off the process by sending an initial request. We use another thread
-            # to avoid any accidental blocking....
-            # def kick_off():
-            #   Log.normal("Kicking off window", window.id())
-            #   send_request(window,
-            #     request     = Req.get_source_errors(),
-            #     on_response = Win(window).highlight_errors
-            #   )
-            # sublime.set_timeout_async(kick_off,300)
+            StackIDEManager.ide_backend_instances[window.id()] = configure_instance(window, cls.settings)
 
 
     @classmethod
@@ -137,14 +138,18 @@ class StackIDEManager:
             instance.end()
 
     @classmethod
-    def reset(cls):
+    def reset(cls, settings):
         """
         Kill all instances, and forget about previous notifications.
         """
         Log.normal("Resetting StackIDE")
         cls.kill_all()
         cls.complaints_shown = set()
+        cls.settings = settings
 
+    @classmethod
+    def configure(cls, settings):
+        cls.settings = settings
 
     @classmethod
     def complain(cls,complaint_id,msg):

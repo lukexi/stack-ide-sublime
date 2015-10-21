@@ -1,4 +1,7 @@
-from SublimeStackIDE.settings import *
+try:
+    import sublime
+except ImportError:
+    from test.stubs import sublime
 
 class Log:
   """
@@ -36,7 +39,7 @@ class Log:
   @classmethod
   def _record(cls, verb, *msg):
       if not Log.verbosity:
-          Log._set_verbosity()
+          Log._set_verbosity("none")
 
       if verb <= Log.verbosity:
           for line in ''.join(map(lambda x: str(x), msg)).split('\n'):
@@ -48,8 +51,9 @@ class Log:
               sublime.status_message('There were warnings, check the console log')
 
   @classmethod
-  def _set_verbosity(cls):
-      verb = Settings.verbosity().lower()
+  def _set_verbosity(cls, input):
+
+      verb = input.lower()
 
       if verb == "none":
           Log.verbosity = Log.VERB_NONE
