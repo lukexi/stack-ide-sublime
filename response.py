@@ -30,9 +30,9 @@ def parse_update_session(contents):
         progress = contents.get('contents')
         return str(progress.get("progressParsedMsg"))
     elif tag == "UpdateStatusDone":
-        return "Session started."
+        return " "
     elif tag == "UpdateStatusRequiredRestart":
-        return "Restarting session..."
+        return "Starting session..."
 
 
 def parse_source_errors(contents):

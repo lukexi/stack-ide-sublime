@@ -50,7 +50,7 @@ class LaunchTests(unittest.TestCase):
         self.assertIsInstance(instance, stackide.StackIDE)
         instance.end()
 
-    @patch('stack_ide.StackIDE.boot_ide_backend', side_effect=FileNotFoundError())
+    @patch('stack_ide.boot_ide_backend', side_effect=FileNotFoundError())
     def test_launch_window_stack_not_found(self, boot_mock):
         instance = manager.configure_instance(
             mock_window([cur_dir + '/projects/helloworld']), settings)
@@ -59,7 +59,7 @@ class LaunchTests(unittest.TestCase):
             instance.reason, "instance init failed -- stack not found")
         self.assertRegex(sublime.current_error, "Could not find program 'stack'!")
 
-    @patch('stack_ide.StackIDE.boot_ide_backend', side_effect=Exception())
+    @patch('stack_ide.boot_ide_backend', side_effect=Exception())
     def test_launch_window_stack_not_found(self, boot_mock):
         instance = manager.configure_instance(
             mock_window([cur_dir + '/projects/helloworld']), settings)

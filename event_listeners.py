@@ -1,12 +1,16 @@
-import sublime_plugin, sublime
+try:
+    import sublime_plugin, sublime
+except ImportError:
+    from test.stubs import sublime, sublime_plugin
 
-from SublimeStackIDE.utility import *
-from SublimeStackIDE.req import *
-from SublimeStackIDE.log import *
-from SublimeStackIDE.win import *
-from SublimeStackIDE.stack_ide import *
-from SublimeStackIDE.stack_ide_manager import *
-from SublimeStackIDE import response as res
+import sys, os
+sys.path.append(os.path.dirname(os.path.realpath(__file__)))
+
+from utility import is_haskell_view, relative_view_file_name, span_from_view_selection
+from req import Req
+from win import Win
+from stack_ide_manager import StackIDEManager, send_request
+import response as res
 
 
 class StackIDESaveListener(sublime_plugin.EventListener):
@@ -15,6 +19,10 @@ class StackIDESaveListener(sublime_plugin.EventListener):
     then request a report of source errors.
     """
     def on_post_save(self, view):
+
+        if not is_haskell_view(view):
+            return
+
         if not StackIDEManager.is_running(view.window()):
             return
 
@@ -26,17 +34,21 @@ class StackIDETypeAtCursorHandler(sublime_plugin.EventListener):
     time it changes position.
     """
     def on_selection_modified(self, view):
-        if not view:
+
+        if not is_haskell_view(view):
             return
-        if not StackIDEManager.is_running(view.window()):
+
+        window = view.window()
+        if not StackIDEManager.is_running(window):
             return
+
         # Only try to get types for views into files
         # (rather than e.g. the find field or the console pane)
         if view.file_name():
             # Uncomment to see the scope at the cursor:
             # Log.debug(view.scope_name(view.sel()[0].begin()))
             request = Req.get_exp_types(span_from_view_selection(view))
-            send_request(view, request, Win(view).highlight_type)
+            send_request(window, request, Win(window).highlight_type)
 
 
 class StackIDEAutocompleteHandler(sublime_plugin.EventListener):
@@ -48,14 +60,20 @@ class StackIDEAutocompleteHandler(sublime_plugin.EventListener):
         self.returned_completions = []
 
     def on_query_completions(self, view, prefix, locations):
-        if not StackIDEManager.is_running(view.window()):
+
+        if not is_haskell_view(view):
             return
+
+        window = view.window()
+        if not StackIDEManager.is_running(window):
+            return
+
         # Check if this completion query is due to our refreshing the completions list
         # after receiving a response from stack-ide, and if so, don't send
         # another request for completions.
         if not view.settings().get("refreshing_auto_complete"):
             request = Req.get_autocompletion(filepath=relative_view_file_name(view),prefix=prefix)
-            send_request(view, request, Win(view).update_completions)
+            send_request(window, request, Win(window).update_completions)
 
         # Clear the flag to uninhibit future completion queries
         view.settings().set("refreshing_auto_complete", False)

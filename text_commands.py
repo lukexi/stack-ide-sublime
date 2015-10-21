@@ -1,10 +1,15 @@
-import sublime, sublime_plugin
+try:
+    import sublime, sublime_plugin
+except ImportError:
+    from test.stubs import sublime, sublime_plugin
 
-from SublimeStackIDE.utility import *
-from SublimeStackIDE.req import *
-from SublimeStackIDE.stack_ide import *
-from SublimeStackIDE.stack_ide_manager import *
-from SublimeStackIDE import response as res
+import os, sys
+sys.path.append(os.path.dirname(os.path.realpath(__file__)))
+
+from utility import span_from_view_selection, first_folder
+from req import Req
+from stack_ide_manager import send_request
+from response import parse_span_info_response, parse_exp_types
 
 class ClearErrorPanelCommand(sublime_plugin.TextCommand):
     """
@@ -27,10 +32,10 @@ class ShowHsTypeAtCursorCommand(sublime_plugin.TextCommand):
     """
     def run(self,edit):
         request = Req.get_exp_types(span_from_view_selection(self.view))
-        send_request(self.view,request, self._handle_response)
+        send_request(self.view.window(),request, self._handle_response)
 
     def _handle_response(self,response):
-        types = list(res.parse_exp_types(response))
+        types = list(parse_exp_types(response))
         if types:
             (type, span) = types[0] # types are ordered by relevance?
             self.view.show_popup(type)
@@ -43,14 +48,14 @@ class ShowHsInfoAtCursorCommand(sublime_plugin.TextCommand):
     """
     def run(self,edit):
         request = Req.get_exp_info(span_from_view_selection(self.view))
-        send_request(self.view, request, self._handle_response)
+        send_request(self.view.window(), request, self._handle_response)
 
     def _handle_response(self,response):
 
         if len(response) < 1:
            return
 
-        infos = res.parse_span_info_response(response)
+        infos = parse_span_info_response(response)
         (props, scope), span = next(infos)
 
         if not props.defSpan is None:
@@ -70,7 +75,7 @@ class GotoDefinitionAtCursorCommand(sublime_plugin.TextCommand):
     """
     def run(self,edit):
         request = Req.get_exp_info(span_from_view_selection(self.view))
-        send_request(self.view,request, self._handle_response)
+        send_request(self.view.window(),request, self._handle_response)
 
     def _handle_response(self,response):
 
@@ -96,10 +101,10 @@ class CopyHsTypeAtCursorCommand(sublime_plugin.TextCommand):
     """
     def run(self,edit):
         request = Req.get_exp_types(span_from_view_selection(self.view))
-        send_request(self.view,request, self._handle_response)
+        send_request(self.view.window(), request, self._handle_response)
 
     def _handle_response(self,response):
-        types = list(res.parse_exp_types(response))
+        types = list(parse_exp_types(response))
         if types:
             (type, span) = types[0] # types are ordered by relevance?
             sublime.set_clipboard(type)

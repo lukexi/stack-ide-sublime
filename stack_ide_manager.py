@@ -4,20 +4,19 @@ import os
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 
-from stack_ide import *
+from stack_ide import StackIDE
 from log import Log
-from utility import *
+from utility import first_folder,expected_cabalfile,has_cabal_file, is_stack_project
 try:
     import sublime
 except ImportError:
     from test.stubs import sublime
 
-def send_request(view_or_window, request, on_response = None):
+def send_request(window, request, on_response = None):
     """
     Sends the given request to the (view's) window's stack-ide instance,
     optionally handling its response
     """
-    window = get_window(view_or_window)
     if StackIDEManager.is_running(window):
         StackIDEManager.for_window(window).send_request(request, on_response)
 
@@ -76,6 +75,10 @@ class StackIDEManager:
     settings = None
 
     @classmethod
+    def getinstances(cls):
+        return cls.ide_backend_instances
+
+    @classmethod
     def check_windows(cls):
         """
         Compares the current windows with the list of instances:
@@ -109,7 +112,6 @@ class StackIDEManager:
                     updated_instances[win_id] = instance
 
         StackIDEManager.ide_backend_instances = updated_instances
-
         # Thw windows remaining in current_windows are new, so they have no instance.
         # We try to create one for them
         for window in current_windows.values():
@@ -120,7 +122,7 @@ class StackIDEManager:
     def is_running(cls, window):
         if not window:
             return False
-        return StackIDEManager.for_window(window) is not None
+        return cls.for_window(window) is not None
 
 
     @classmethod
