@@ -10,6 +10,22 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 
 from log import Log
 
+complaints_shown = set()
+def complain(id, text):
+    """
+    Show the msg as an error message (on a modal pop-up). The complaint_id is
+    used to decide when we have already complained about something, so that
+    we don't do it again (until reset)
+    """
+    if id not in complaints_shown:
+        complaints_shown.add(id)
+        sublime.error_message(text)
+
+def reset_complaints():
+    global complaints_shown
+    complaints_shown = set()
+
+
 def first_folder(window):
     """
     We only support running one stack-ide instance per window currently,

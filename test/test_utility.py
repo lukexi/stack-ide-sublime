@@ -1,6 +1,7 @@
 import unittest
 from test.mocks import mock_view, mock_window, cur_dir
 import utility
+from .stubs import sublime
 
 class UtilTests(unittest.TestCase):
 
@@ -23,3 +24,13 @@ class UtilTests(unittest.TestCase):
         self.assertEqual(1, span['spanFromColumn'])
         self.assertEqual(1, span['spanToColumn'])
         self.assertEqual('src/Main.hs', span['spanFilePath'])
+
+    def test_complaints_not_repeated(self):
+        utility.complain('complaint', 'waaaah')
+        self.assertEqual(sublime.current_error, 'waaaah')
+        utility.complain('complaint', 'waaaah 2')
+        self.assertEqual(sublime.current_error, 'waaaah')
+        utility.reset_complaints()
+        utility.complain('complaint', 'waaaah 2')
+        self.assertEqual(sublime.current_error, 'waaaah 2')
+

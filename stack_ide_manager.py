@@ -6,7 +6,7 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 
 from stack_ide import StackIDE
 from log import Log
-from utility import first_folder,expected_cabalfile,has_cabal_file, is_stack_project
+from utility import first_folder,expected_cabalfile,has_cabal_file, is_stack_project, complain, reset_complaints
 try:
     import sublime
 except ImportError:
@@ -55,7 +55,7 @@ def configure_instance(window, settings):
         except FileNotFoundError as e:
             instance = NoStackIDE("instance init failed -- stack not found")
             Log.error(e)
-            StackIDEManager.complain('stack-not-found',
+            complain('stack-not-found',
                 "Could not find program 'stack'!\n\n"
                 "Make sure that 'stack' and 'stack-ide' are both installed. "
                 "If they are not on the system path, edit the 'add_to_PATH' "
@@ -71,7 +71,6 @@ def configure_instance(window, settings):
 
 class StackIDEManager:
     ide_backend_instances = {}
-    complaints_shown = set()
     settings = None
 
     @classmethod
@@ -146,23 +145,12 @@ class StackIDEManager:
         """
         Log.normal("Resetting StackIDE")
         cls.kill_all()
-        cls.complaints_shown = set()
+        reset_complaints()
         cls.settings = settings
 
     @classmethod
     def configure(cls, settings):
         cls.settings = settings
-
-    @classmethod
-    def complain(cls,complaint_id,msg):
-       """
-       Show the msg as an error message (on a modal pop-up). The complaint_id is
-       used to decide when we have already complained about something, so that
-       we don't do it again (until reset)
-       """
-       if complaint_id not in cls.complaints_shown:
-           cls.complaints_shown.add(complaint_id)
-           sublime.error_message(msg)
 
 
 class NoStackIDE:

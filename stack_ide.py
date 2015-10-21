@@ -11,7 +11,7 @@ import uuid
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 
-from utility import first_folder
+from utility import first_folder, complain
 from req import Req
 from log import Log
 from win import Win
@@ -26,7 +26,6 @@ if os.name == 'nt':
 
 class StackIDE:
 
-    complaints_shown = set()
 
     def __init__(self, window, settings, backend=None):
         self.window = window
@@ -67,15 +66,6 @@ class StackIDE:
             self._backend.send_request(request)
         else:
             Log.error("Couldn't send request, no process!", request)
-
-    @classmethod
-    def complain(cls,complaint_id,msg):
-       """
-       we don't do it again (until reset)
-       """
-       if complaint_id not in cls.complaints_shown:
-           cls.complaints_shown.add(complaint_id)
-           sublime.error_message(msg)
 
 
     def load_initial_targets(self):
@@ -142,7 +132,7 @@ class StackIDE:
             version_got = tuple(contents) if type(contents) is list else contents
             if expected_version > version_got:
                 Log.error("Old stack-ide protocol:", version_got, '\n', 'Want version:', expected_version)
-                StackIDE.complain("wrong-stack-ide-version",
+                complain("wrong-stack-ide-version",
                     "Please upgrade stack-ide to a newer version.")
             elif expected_version < version_got:
                 Log.warning("stack-ide protocol may have changed:", version_got)
