@@ -13,8 +13,14 @@ from SublimeStackIDE.log import *
 from SublimeStackIDE.win import *
 import SublimeStackIDE.response as res
 
-class StackIDE:
+# Make sure Popen hides the console on Windows.
+# We don't need this on other platforms 
+# (and it would cause an error)
+CREATE_NO_WINDOW = 0
+if os.name == 'nt':
+    CREATE_NO_WINDOW = 0x08000000
 
+class StackIDE:
 
     def __init__(self, window):
         self.window = window
@@ -76,7 +82,8 @@ class StackIDE:
 
         self.process = subprocess.Popen(["stack", "ide", "start", project_name],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            cwd=first_folder(self.window), env=alt_env
+            cwd=first_folder(self.window), env=alt_env,
+            creationflags=CREATE_NO_WINDOW
             )
 
         self.stdoutThread = threading.Thread(target=self.read_stdout)
@@ -90,7 +97,9 @@ class StackIDE:
 
             proc = subprocess.Popen(["stack", "ide", "load-targets", project_name],
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                cwd=first_folder(self.window), env=alt_env, universal_newlines=True
+                cwd=first_folder(self.window), env=alt_env, 
+                universal_newlines=True,
+                creationflags=CREATE_NO_WINDOW
                 )
             outs, errs = proc.communicate()
             initial_targets = outs.splitlines()
