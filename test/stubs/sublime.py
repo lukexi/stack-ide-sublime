@@ -12,7 +12,7 @@ def error_message(msg):
     current_error = msg
 
 def set_timeout_async(fn, delay):
-    pass
+    fn()
 
 def set_timeout(fn, delay):
     fn()
@@ -41,6 +41,9 @@ class FakeWindow():
     def folders(self):
         return self._folders
 
+    # def create_output_panel():
+    #     return None
+
 fake_windows = []
 
 ENCODED_POSITION = 1 #flag used for window.open_file
@@ -53,6 +56,9 @@ def create_window(path):
     window = FakeWindow(path)
     fake_windows.append(window)
     return window
+
+def add_window(window):
+    fake_windows.append(window)
 
 def destroy_windows():
     global fake_windows

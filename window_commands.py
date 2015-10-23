@@ -5,13 +5,6 @@ except ImportError:
 
 from stack_ide_manager import StackIDEManager
 
-class UpdateCompletionsCommand(sublime_plugin.WindowCommand):
-    """
-    This class only exists so that the command can be called and intercepted by
-    StackIDEAutocompleteHandler to update its completions list.
-    """
-    def run(self, completions):
-        return None
 
 class SendStackIdeRequestCommand(sublime_plugin.WindowCommand):
     """

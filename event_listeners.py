@@ -10,8 +10,7 @@ from utility import is_haskell_view, relative_view_file_name, span_from_view_sel
 from req import Req
 from win import Win
 from stack_ide_manager import StackIDEManager, send_request
-import response as res
-
+from response import parse_autocompletions
 
 class StackIDESaveListener(sublime_plugin.EventListener):
     """
@@ -58,6 +57,8 @@ class StackIDEAutocompleteHandler(sublime_plugin.EventListener):
     def __init__(self):
         super(StackIDEAutocompleteHandler, self).__init__()
         self.returned_completions = []
+        self.view = None
+        self.refreshing = False
 
     def on_query_completions(self, view, prefix, locations):
 
@@ -67,16 +68,16 @@ class StackIDEAutocompleteHandler(sublime_plugin.EventListener):
         window = view.window()
         if not StackIDEManager.is_running(window):
             return
-
         # Check if this completion query is due to our refreshing the completions list
         # after receiving a response from stack-ide, and if so, don't send
         # another request for completions.
-        if not view.settings().get("refreshing_auto_complete"):
+        if not self.refreshing:
+            self.view = view
             request = Req.get_autocompletion(filepath=relative_view_file_name(view),prefix=prefix)
-            send_request(window, request, Win(window).update_completions)
+            send_request(window, request, self._handle_response)
 
-        # Clear the flag to uninhibit future completion queries
-        view.settings().set("refreshing_auto_complete", False)
+        # Clear the flag to allow future completion queries
+        self.refreshing = False
         return list(self.format_completion(*completion) for completion in self.returned_completions)
 
 
@@ -86,42 +87,17 @@ class StackIDEAutocompleteHandler(sublime_plugin.EventListener):
                                     scope.importedFrom.module if scope else ''),
                  prop.name]
 
+    def _handle_response(self, response):
+        self.returned_completions = list(parse_autocompletions(response))
+        self.view.run_command('hide_auto_complete')
+        sublime.set_timeout(self.run_auto_complete, 0)
 
-    def on_window_command(self, window, command_name, args):
-        """
-        Implements a hacky way of returning data to the StackIDEAutocompleteHandler instance,
-        wherein SendStackIDERequestCommand calls a update_completions command on the window,
-        which is really just a dummy command that we intercept here in order to assign the resulting
-        completions to returned_completions to then, finally, return the next time on_query_completions
-        is called.
-        """
-        if not StackIDEManager.is_running(window):
-            return
-        if args == None:
-            return None
-        completions = args.get("completions")
-        if command_name == "update_completions" and completions:
-            # Log.debug("INTERCEPTED:\n " + str(completions) + "\n")
-            self.returned_completions = list(res.parse_autocompletions(completions))
 
-            # Hide the auto_complete popup so we can reopen it,
-            # triggering a new on_query_completions
-            # call to pickup our new self.returned_completions.
-            window.active_view().run_command('hide_auto_complete')
-
-            def reactivate():
-                # We read this in on_query_completions to prevent sending a duplicate
-                # request for completions when we're only trying to re-trigger the completions
-                # popup; otherwise we get an infinite loop of
-                #   autocomplete > request completions > receive response > close/reopen to refresh
-                # > autocomplete > request completions > etc.
-                window.active_view().settings().set("refreshing_auto_complete", True)
-                window.active_view().run_command('auto_complete', {
-                        'disable_auto_insert': True,
-                        # 'api_completions_only': True,
-                        'next_competion_if_showing': False
-                    })
-            # Wait one runloop before reactivating, to give the hide command a chance to finish
-            sublime.set_timeout(reactivate, 0)
-        return None
-
+    def run_auto_complete(self):
+        self.refreshing = True
+        self.view.run_command("auto_complete", {
+            'disable_auto_insert': True,
+            # 'api_completions_only': True,
+            'next_completion_if_showing': False,
+            # 'auto_complete_commit_on_tab': True,
+        })
