@@ -6,7 +6,7 @@ except ImportError:
 import os, sys
 sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 
-from utility import span_from_view_selection, first_folder
+from utility import span_from_view_selection, first_folder, filter_enclosing
 from req import Req
 from stack_ide_manager import send_request
 from response import parse_span_info_response, parse_exp_types
@@ -35,10 +35,11 @@ class ShowHsTypeAtCursorCommand(sublime_plugin.TextCommand):
         send_request(self.view.window(),request, self._handle_response)
 
     def _handle_response(self,response):
-        types = list(parse_exp_types(response))
-        if types:
-            (type, span) = types[0] # types are ordered by relevance?
-            self.view.show_popup(type)
+        type_spans = list(parse_exp_types(response))
+        if type_spans:
+            _type = next(filter_enclosing(self.view, self.view.sel()[0], type_spans), None)
+            if not _type is None:
+                self.view.show_popup(_type)
 
 
 class ShowHsInfoAtCursorCommand(sublime_plugin.TextCommand):
