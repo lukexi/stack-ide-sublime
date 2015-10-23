@@ -34,21 +34,23 @@ class StackIDE:
         self.is_alive  = True
         self.is_active = False
         self.process   = None
-        folder = first_folder(window)
-        (project_in, project_name) = os.path.split(folder)
+        self.project_path = first_folder(window)
+        (project_in, project_name) = os.path.split(self.project_path)
         self.project_name = project_name
 
-        self.alt_env = os.environ.copy()
-        add_to_PATH = settings.add_to_PATH
-        if len(add_to_PATH) > 0:
-            self.alt_env["PATH"] = os.pathsep.join(add_to_PATH + [self.alt_env.get("PATH","")])
+        reset_env(settings.add_to_PATH)
 
         if backend is None:
-            self._backend = boot_ide_backend(folder, self.alt_env, self.handle_response)
-        else:
+            self._backend = stack_ide_start(self.project_path, self.project_name, self.handle_response)
+        else: # for testing
             self._backend = backend
+            self._backend.handler = self.handle_response
+
         self.is_active = True
         self.include_targets = set()
+
+        # TODO: could check packages here to fix the 'project_dir must equal packagename issue'
+
         sublime.set_timeout_async(self.load_initial_targets, 0)
 
 
@@ -72,14 +74,7 @@ class StackIDE:
         """
         Get the initial list of files to check
         """
-
-        proc = subprocess.Popen(["stack", "ide", "load-targets", self.project_name],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-            cwd=first_folder(self.window), env=self.alt_env,
-            universal_newlines=True,
-            creationflags=CREATE_NO_WINDOW)
-        outs, errs = proc.communicate()
-        initial_targets = outs.splitlines()
+        initial_targets = stack_ide_loadtargets(self.project_path, self.project_name)
         sublime.set_timeout(lambda: self.update_files(initial_targets), 0)
 
 
@@ -118,36 +113,50 @@ class StackIDE:
         seq_id   = data.get("seq")
 
         if seq_id is not None:
-            handler = self.conts.get(seq_id)
-            del self.conts[seq_id]
-            if handler is not None:
-                if contents is not None:
-                    sublime.set_timeout(lambda:handler(contents), 0)
-            else:
-                Log.warning("Handler not found for seq", seq_id)
+            self._send_to_handler(contents, seq_id)
 
-        # Check that stack-ide talks a version of the protocal we understand
         elif tag == "ResponseWelcome":
-            expected_version = (0,1,1)
-            version_got = tuple(contents) if type(contents) is list else contents
-            if expected_version > version_got:
-                Log.error("Old stack-ide protocol:", version_got, '\n', 'Want version:', expected_version)
-                complain("wrong-stack-ide-version",
-                    "Please upgrade stack-ide to a newer version.")
-            elif expected_version < version_got:
-                Log.warning("stack-ide protocol may have changed:", version_got)
-            else:
-                Log.debug("stack-ide protocol version:", version_got)
+            self._handle_welcome(contents)
 
-        # Pass progress messages to the status bar
         elif tag == "ResponseUpdateSession":
             self._handle_update_session(contents)
+
+        elif tag == "ResponseShutdownSession":
+            Log.debug("Stack-ide process has shut down")
 
         elif tag == "ResponseLog":
             Log.debug(contents.rstrip())
 
         else:
             Log.normal("Unhandled response: ", data)
+
+    def _send_to_handler(self, contents, seq_id):
+        """
+        Looks up a previously registered handler for the incoming response
+        """
+        handler = self.conts.get(seq_id)
+        del self.conts[seq_id]
+        if handler is not None:
+            if contents is not None:
+                sublime.set_timeout(lambda:handler(contents), 0)
+        else:
+            Log.warning("Handler not found for seq", seq_id)
+
+
+    def _handle_welcome(self, welcome):
+        """
+        Identifies if we support the current version of the stack ide api
+        """
+        expected_version = (0,1,1)
+        version_got = tuple(welcome) if type(welcome) is list else welcome
+        if expected_version > version_got:
+            Log.error("Old stack-ide protocol:", version_got, '\n', 'Want version:', expected_version)
+            complain("wrong-stack-ide-version",
+                "Please upgrade stack-ide to a newer version.")
+        elif expected_version < version_got:
+            Log.warning("stack-ide protocol may have changed:", version_got)
+        else:
+            Log.debug("stack-ide protocol version:", version_got)
 
 
     def _handle_update_session(self, update_session):
@@ -169,19 +178,48 @@ class StackIDE:
             finally:
                 self.process = None
 
-def boot_ide_backend(folder, env, response_handler):
+env = {}
+
+def reset_env(add_to_PATH):
+    global env
+    env = os.environ.copy()
+    if len(add_to_PATH) > 0:
+        env["PATH"] = os.pathsep.join(add_to_PATH + [env.get("PATH","")])
+
+
+def stack_ide_packages(project_path):
+    proc = subprocess.Popen(["stack", "ide", "packages"],
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        cwd=project_path, env=env,
+        universal_newlines=True,
+        creationflags=CREATE_NO_WINDOW)
+    outs, errs = proc.communicate()
+    return outs.splitlines()
+
+
+def stack_ide_loadtargets(project_path, package):
+
+    Log.debug("Requesting load targets for ", package)
+    proc = subprocess.Popen(["stack", "ide", "load-targets", package],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            cwd=project_path, env=env,
+            universal_newlines=True,
+            creationflags=CREATE_NO_WINDOW)
+    outs, errs = proc.communicate()
+    # TODO: check response!
+    return outs.splitlines()
+
+
+def stack_ide_start(project_path, package, response_handler):
     """
     Start up a stack-ide subprocess for the window, and a thread to consume its stdout.
     """
 
-    # Assumes the library target name is the same as the project dir
-    (project_in, project_name) = os.path.split(folder)
+    Log.debug("Calling stack ide start with PATH:", env['PATH'] if env else os.environ['PATH'])
 
-    Log.debug("Calling stack with PATH:", env['PATH'] if env else os.environ['PATH'])
-
-    process = subprocess.Popen(["stack", "ide", "start", project_name],
+    process = subprocess.Popen(["stack", "ide", "start", package],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        cwd=folder, env=env,
+        cwd=project_path, env=env,
         creationflags=CREATE_NO_WINDOW
         )
 

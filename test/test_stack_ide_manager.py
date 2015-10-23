@@ -1,16 +1,15 @@
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, Mock
 from stack_ide_manager import NoStackIDE, StackIDEManager, configure_instance
-import stack_ide as stackide
+import stack_ide
 from .mocks import mock_window, cur_dir
 from .stubs import sublime
-from .stubs.backend import FakeBackend
+from .fakebackend import FakeBackend
+from .data import test_settings
 from log import Log
 from req import Req
-from settings import Settings
 import watchdog as wd
 
-test_settings = Settings("none", [], False)
 
 class WatchdogTests(unittest.TestCase):
 
@@ -27,7 +26,6 @@ class WatchdogTests(unittest.TestCase):
         self.assertIsNone(wd.watchdog)
 
 
-
 class StackIDEManagerTests(unittest.TestCase):
 
 
@@ -40,10 +38,8 @@ class StackIDEManagerTests(unittest.TestCase):
     def test_creates_initial_window(self):
 
         sublime.create_window('.')
-
         StackIDEManager.check_windows()
         self.assertEqual(1, len(StackIDEManager.ide_backend_instances))
-
         sublime.destroy_windows()
 
     def test_monitors_closed_windows(self):
@@ -65,12 +61,15 @@ class StackIDEManagerTests(unittest.TestCase):
         sublime.destroy_windows()
 
     def test_retains_live_instances(self):
-        window = sublime.create_window('.')
+
+        window = mock_window(['.'])
+        sublime.add_window(window)
+
         StackIDEManager.check_windows()
         self.assertEqual(1, len(StackIDEManager.ide_backend_instances))
 
         # substitute a 'live' instance
-        instance = stackide.StackIDE(window, test_settings, FakeBackend())
+        instance = stack_ide.StackIDE(window, test_settings, FakeBackend())
         StackIDEManager.ide_backend_instances[window.id()] = instance
 
         # instance should still exist.
@@ -87,7 +86,8 @@ class StackIDEManagerTests(unittest.TestCase):
 
         # substitute a 'live' instance
         backend = MagicMock()
-        instance = stackide.StackIDE(window, test_settings, backend)
+        stack_ide.stack_ide_loadtargets = Mock(return_value=['app/Main.hs', 'src/Lib.hs'])
+        instance = stack_ide.StackIDE(window, test_settings, backend)
         StackIDEManager.ide_backend_instances[window.id()] = instance
 
         # close the window
@@ -150,11 +150,12 @@ class LaunchTests(unittest.TestCase):
     def test_launch_window_with_helloworld_project(self):
         instance = configure_instance(
             mock_window([cur_dir + '/projects/helloworld']), test_settings)
-        self.assertIsInstance(instance, stackide.StackIDE)
+        self.assertIsInstance(instance, stack_ide.StackIDE)
         instance.end()
 
-    @patch('stack_ide.boot_ide_backend', side_effect=FileNotFoundError())
-    def test_launch_window_stack_not_found(self, boot_mock):
+    def test_launch_window_stack_not_found(self):
+
+        stack_ide.stack_ide_start = Mock(side_effect=FileNotFoundError())
         instance = configure_instance(
             mock_window([cur_dir + '/projects/helloworld']), test_settings)
         self.assertIsInstance(instance, NoStackIDE)
@@ -162,8 +163,9 @@ class LaunchTests(unittest.TestCase):
             instance.reason, "instance init failed -- stack not found")
         self.assertRegex(sublime.current_error, "Could not find program 'stack'!")
 
-    @patch('stack_ide.boot_ide_backend', side_effect=Exception())
-    def test_launch_window_stack_not_found(self, boot_mock):
+    def test_launch_window_stack_unknown_error(self):
+
+        stack_ide.stack_ide_start = Mock(side_effect=Exception())
         instance = configure_instance(
             mock_window([cur_dir + '/projects/helloworld']), test_settings)
         self.assertIsInstance(instance, NoStackIDE)

@@ -108,9 +108,10 @@ class Win:
         # Seems to force the panel to refresh after we clear it:
         self.window.run_command("hide_panel", {"panel": "output.hide_errors"})
 
-        # Clear the panel
+        # Clear the panel. TODO: should be unnecessary? https://www.sublimetext.com/forum/viewtopic.php?f=6&t=2044
         panel.run_command("clear_error_panel")
 
+        # TODO store the panel somewhere so we can reuse it.
         return panel
 
 

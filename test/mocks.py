@@ -1,7 +1,13 @@
 import os
 from unittest.mock import Mock, MagicMock
 
+from stack_ide import StackIDE
+from stack_ide_manager import StackIDEManager
+from .fakebackend import FakeBackend
+from settings import Settings
+
 cur_dir = os.path.dirname(os.path.realpath(__file__))
+test_settings = Settings("none", [], False)
 
 def mock_window(paths=[]):
     window = MagicMock()
@@ -24,3 +30,28 @@ def mock_view(file_path, window):
     view.rowcol = Mock(return_value=(0, 0))
     view.text_point = Mock(return_value=20)
     return view
+
+def setup_fake_backend(window, responses={}):
+    backend = FakeBackend(responses)
+    instance = StackIDE(window, test_settings, backend)
+    backend.handler = instance.handle_response
+    StackIDEManager.ide_backend_instances[
+        window.id()] = instance
+    return backend
+
+def setup_mock_backend(window):
+    backend = MagicMock()
+    instance = StackIDE(window, test_settings, backend)
+    # backend.handler = instance.handle_response
+    StackIDEManager.ide_backend_instances[
+        window.id()] = instance
+    return backend
+
+
+def default_mock_window():
+    """
+    Returns a (window, view) tuple pointing to /projects/helloworld/src/Main.hs
+    """
+    window = mock_window([cur_dir + '/projects/helloworld'])
+    view = mock_view('src/Main.hs', window)
+    return (window, view)
