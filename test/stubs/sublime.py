@@ -74,6 +74,12 @@ def windows():
 
 class Region():
 
-    def __init__(self, start, end):
-        self.start = start
-        self.end = end
+    def __init__(self, begin, end):
+        self._begin = begin
+        self._end = end
+
+    def begin(self):
+        return self._begin
+
+    def end(self):
+        return self._end

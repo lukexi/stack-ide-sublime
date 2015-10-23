@@ -66,6 +66,12 @@ def relative_view_file_name(view):
 def span_from_view_selection(view):
     return span_from_view_region(view, view.sel()[0])
 
+def within(smaller, larger):
+    return smaller.begin() >= larger.begin() and smaller.end() <= larger.end()
+
+def filter_enclosing(view, region, span_pairs):
+    return (item for item, span in span_pairs if within(region, view_region_from_span(view, span)))
+
 def is_haskell_view(view):
     return view.match_selector(view.sel()[0].begin(), "source.haskell")
 
@@ -78,9 +84,9 @@ def view_region_from_span(view, span):
     :rtype sublime.Region: The created Region
 
     """
-    from_point = view.text_point(span.fromLine - 1, span.fromColumn - 1)
-    to_point = view.text_point(span.toLine - 1, span.toColumn - 1)
-    return sublime.Region(from_point, to_point)
+    return sublime.Region(
+        view.text_point(span.fromLine - 1, span.fromColumn - 1),
+        view.text_point(span.toLine - 1, span.toColumn - 1))
 
 def span_from_view_region(view, region):
     (from_line, from_col) = view.rowcol(region.begin())

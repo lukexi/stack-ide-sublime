@@ -24,11 +24,11 @@ def mock_view(file_path, window):
     window.views = Mock(return_value=[view])
     view.window = Mock(return_value=window)
     region = MagicMock()
-    region.begin = Mock(return_value=1)
-    region.end = Mock(return_value=2)
+    region.begin = Mock(return_value=4)
+    region.end = Mock(return_value=4)
     view.sel = Mock(return_value=[region])
     view.rowcol = Mock(return_value=(0, 0))
-    view.text_point = Mock(return_value=20)
+    view.text_point = Mock(return_value=4)
     return view
 
 def setup_fake_backend(window, responses={}):
