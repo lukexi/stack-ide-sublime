@@ -32,7 +32,7 @@ def plugin_loaded():
 def plugin_unloaded():
     global watchdog
     watchdog.kill()
-    StackIDEManager.reset(settings)
+    StackIDEManager.reset()
     watchdog = None
 
 
@@ -54,7 +54,8 @@ def on_settings_changed():
         Log._set_verbosity(updated_settings.verbosity)
     elif updated_settings.add_to_PATH != settings.add_to_PATH:
         Log.normal("Settings changed, reloading backends")
-        StackIDEManager.reset(updated_settings)
+        StackIDEManager.configure(updated_settings)
+        StackIDEManager.reset()
     elif updated_settings.show_popup != settings.show_popup:
         Win.show_popup = updated_settings.show_popup
 

@@ -110,6 +110,28 @@ class StackIDEManagerTests(unittest.TestCase):
         self.assertEqual(1, len(StackIDEManager.ide_backend_instances))
         sublime.destroy_windows()
 
+    def test_reset(self):
+        window = mock_window(['.'])
+        sublime.add_window(window)
+
+        StackIDEManager.check_windows()
+        self.assertEqual(1, len(StackIDEManager.ide_backend_instances))
+
+        # substitute a 'live' instance
+        backend = MagicMock()
+        stack_ide.stack_ide_loadtargets = Mock(return_value=['app/Main.hs', 'src/Lib.hs'])
+        instance = stack_ide.StackIDE(window, test_settings, backend)
+        StackIDEManager.ide_backend_instances[window.id()] = instance
+
+        StackIDEManager.reset()
+
+        # instances should be shut down.
+        self.assertEqual(1, len(StackIDEManager.ide_backend_instances))
+        self.assertFalse(instance.is_alive)
+        backend.send_request.assert_called_with(Req.get_shutdown())
+
+        sublime.destroy_windows()
+
 
 
 

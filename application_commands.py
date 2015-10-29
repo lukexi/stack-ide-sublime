@@ -1,6 +1,8 @@
 import sublime_plugin
+import sys, os
+sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 
-from SublimeStackIDE.stack_ide_manager import StackIDEManager
+from stack_ide_manager import StackIDEManager
 
 
 class RestartStackIde(sublime_plugin.ApplicationCommand):
