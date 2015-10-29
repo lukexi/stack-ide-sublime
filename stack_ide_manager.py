@@ -134,19 +134,19 @@ class StackIDEManager:
 
     @classmethod
     def kill_all(cls):
-        Log.normal("Killing all stack-ide-sublime instances:", {k:str(v) for k,v in StackIDEManager.ide_backend_instances.items()})
+        # Log.normal("Killing all stack-ide-sublime instances:", {k:str(v) for k, v in StackIDEManager.ide_backend_instances.items()})
         for instance in StackIDEManager.ide_backend_instances.values():
+            print("yo")
             instance.end()
 
     @classmethod
-    def reset(cls, settings):
+    def reset(cls):
         """
         Kill all instances, and forget about previous notifications.
         """
         Log.normal("Resetting StackIDE")
-        cls.kill_all()
+        StackIDEManager.kill_all()
         reset_complaints()
-        cls.settings = settings
 
     @classmethod
     def configure(cls, settings):
