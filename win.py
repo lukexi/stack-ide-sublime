@@ -5,7 +5,7 @@ try:
     import sublime
 except ImportError:
     from test.stubs import sublime
-from utility import first_folder, view_region_from_span
+from utility import first_folder, view_region_from_span, filter_enclosing, shorten_module_prefix
 from response import parse_source_errors, parse_exp_types
 
 class Win:
@@ -40,21 +40,14 @@ class Win:
         most specific one for now, but it gives us the types all the way out to the topmost
         expression.
         """
-        types = list(parse_exp_types(exp_types))
-        if types:
-            # Display the first type in a region and in the status bar
-            view = self.window.active_view()
-            (type, span) = types[0]
-            if span:
+        type_spans = list(parse_exp_types(exp_types))
+        if type_spans:
+            _view = self.window.active_view()
+            _type = next(filter_enclosing(_view, _view.sel()[0], type_spans), None)
+            if not _type is None:
+                _view.set_status("type_at_cursor", _type)
                 if Win.show_popup:
-                    view.show_popup(type)
-                view.set_status("type_at_cursor", type)
-                view.add_regions("type_at_cursor", [view_region_from_span(view, span)], "storage.type", "", sublime.DRAW_OUTLINED)
-        else:
-            # Clear type-at-cursor display
-            for view in self.window.views():
-                view.set_status("type_at_cursor", "")
-                view.add_regions("type_at_cursor", [], "storage.type", "", sublime.DRAW_OUTLINED)
+                    _view.show_popup(shorten_module_prefix(_type))
 
 
     def handle_source_errors(self, source_errors):
