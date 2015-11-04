@@ -43,10 +43,11 @@ class Win:
         type_spans = list(parse_exp_types(exp_types))
         if type_spans:
             view = self.window.active_view()
-            _type = next(filter_enclosing(view, view.sel()[0], type_spans), None)
-            if not _type is None:
+            type_span = next(filter_enclosing(view, view.sel()[0], type_spans), None)
+            if type_span is not None:
+                (_type, span) = type_span
                 view.set_status("type_at_cursor", _type)
-                #view.add_regions("type_at_cursor", [view_region_from_span(view, span)], "storage.type", "", sublime.DRAW_OUTLINED)
+                view.add_regions("type_at_cursor", [view_region_from_span(view, span)], "storage.type", "", sublime.DRAW_OUTLINED)
                 if Win.show_popup:
                     view.show_popup(shorten_module_prefix(_type))
                 return
@@ -54,7 +55,7 @@ class Win:
         # Clear type-at-cursor display     
         for view in self.window.views():       
             view.set_status("type_at_cursor", "")      
-            # view.add_regions("type_at_cursor", [], "storage.type", "", sublime.DRAW_OUTLINED)
+            view.add_regions("type_at_cursor", [], "storage.type", "", sublime.DRAW_OUTLINED)
 
 
     def handle_source_errors(self, source_errors):

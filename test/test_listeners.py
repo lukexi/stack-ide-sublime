@@ -58,7 +58,7 @@ class ListenerTests(unittest.TestCase):
         listener.on_selection_modified(view)
 
         view.set_status.assert_called_with("type_at_cursor", type_info)
-        #view.add_regions.assert_called_with("type_at_cursor", ANY, "storage.type", "", sublime.DRAW_OUTLINED)
+        view.add_regions.assert_called_with("type_at_cursor", ANY, "storage.type", "", sublime.DRAW_OUTLINED)
 
     def test_request_completions(self):
 

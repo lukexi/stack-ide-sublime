@@ -70,7 +70,7 @@ def within(smaller, larger):
     return smaller.begin() >= larger.begin() and smaller.end() <= larger.end()
 
 def filter_enclosing(view, region, span_pairs):
-    return (item for item, span in span_pairs if within(region, view_region_from_span(view, span)))
+    return ((item, span) for item, span in span_pairs if within(region, view_region_from_span(view, span)))
 
 def shorten_module_prefix(prefixed_type):
     words = prefixed_type.split('.')
