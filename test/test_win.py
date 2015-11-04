@@ -30,7 +30,7 @@ class WinTests(unittest.TestCase):
         Win(window).highlight_type([])
 
         view.set_status.assert_called_with("type_at_cursor", "")
-        view.add_regions.assert_called_with("type_at_cursor", [], "storage.type", "", sublime.DRAW_OUTLINED)
+        #view.add_regions.assert_called_with("type_at_cursor", [], "storage.type", "", sublime.DRAW_OUTLINED)
 
     def test_highlight_no_errors(self):
 
