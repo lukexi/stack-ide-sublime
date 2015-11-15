@@ -1,4 +1,7 @@
-[ ] Use `stack ide load-targets` asynchronously at startup (and maybe with a key command) and have it pass its results into update_session_includes at startup. We can keep the current "on save, add to update_session_includes", but we should keep a persistent list of them so we always pass the full list. We may need a "clear" command with this approach, in case you save two modules containing a main function, for example (is there a better way?).
+
+[ ] Implement switching targets using Sublime's UI helpers. How do we get the list of possible targets?
+
+
 
 [ ] Implement tooltips for type and doc information.
     See here for Sublime Text API:
@@ -34,3 +37,4 @@ DONE:
     Need to ensure it's persistent enough and maybe log it to a buffer too for copy-pasteability
     (Oh, we can probably use the status flag API for the persistence part)
 
+[x] Use `stack ide load-targets` asynchronously at startup (and maybe with a key command) and have it pass its results into update_session_includes at startup. We can keep the current "on save, add to update_session_includes", but we should keep a persistent list of them so we always pass the full list. We may need a "clear" command with this approach, in case you save two modules containing a main function, for example (is there a better way?).
