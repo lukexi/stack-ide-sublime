@@ -5,8 +5,9 @@ try:
     import sublime
 except ImportError:
     from test.stubs import sublime
-from utility import first_folder, view_region_from_span, filter_enclosing, shorten_module_prefixes
+from utility import first_folder, view_region_from_span, filter_enclosing, format_type
 from response import parse_source_errors, parse_exp_types
+import webbrowser
 
 class Win:
     """
@@ -49,12 +50,12 @@ class Win:
                 view.set_status("type_at_cursor", _type)
                 view.add_regions("type_at_cursor", [view_region_from_span(view, span)], "storage.type", "", sublime.DRAW_OUTLINED)
                 if Win.show_popup:
-                    view.show_popup(shorten_module_prefixes(_type))
+                    view.show_popup(format_type(_type), on_navigate= (lambda href: webbrowser.open(href)))
                 return
 
-        # Clear type-at-cursor display     
-        for view in self.window.views():       
-            view.set_status("type_at_cursor", "")      
+        # Clear type-at-cursor display
+        for view in self.window.views():
+            view.set_status("type_at_cursor", "")
             view.add_regions("type_at_cursor", [], "storage.type", "", sublime.DRAW_OUTLINED)
 
 

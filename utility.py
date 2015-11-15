@@ -72,16 +72,31 @@ def within(smaller, larger):
 def filter_enclosing(view, region, span_pairs):
     return ((item, span) for item, span in span_pairs if within(region, view_region_from_span(view, span)))
 
-def shorten_module_prefixes(type_with_prefixes):
-    words = type_with_prefixes.replace("(", " ( ").replace("[", " [ ").split(' ')
-    return (" ".join(map(shorten_module_prefix, words)).replace(" ( ","(").replace(" [ ","["))
+def format_type(raw_type):
+    words = raw_type.replace("(", " ( ").replace("[", " [ ").split(' ')
+    return (" ".join(map(format_subtype, words)).replace(" ( ","(").replace(" [ ","["))
 
-def shorten_module_prefix(prefixed_type):
-    words = prefixed_type.split('.')
+def format_subtype(type_string):
+    # See documentation about popups here:
+    #       http://facelessuser.github.io/sublime-markdown-popups/usage/ (official doc)
+    # and   https://www.sublimetext.com/forum/viewtopic.php?f=2&t=17583  (html support announcment)
+
+    words = [x for x in type_string.split('.') if x != '']
+    # [x for x in type_string.split('.') is necessary to handle the `a.` part of `forall a.` properly
+
     if (len(words) > 1):
-        return ("_" + words[-1])
+        s = ("_"+words[-1])
     else:
-        return prefixed_type
+        s = type_string
+
+    if s == "->":
+        return ('<span style="color: blue">{0}</span>'.format("->"))
+    elif s == "(" or s == ")" or s == "[" or s == "]" or s=='':
+        return s
+    elif (s[0] != '_' and s[0].islower()):
+        return ('<span style="color: #4C4C4C">{0}</span>'.format(s))
+    else:
+        return ('<a href="http://www.stackage.org/lts/hoogle?q={0}" style="color: #333333">{1}</a>'.format(type_string, s))
 
 def is_haskell_view(view):
     return view.match_selector(view.sel()[0].begin(), "source.haskell")
