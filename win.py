@@ -5,7 +5,7 @@ try:
     import sublime
 except ImportError:
     from test.stubs import sublime
-from utility import first_folder, view_region_from_span, filter_enclosing, shorten_module_prefix
+from utility import first_folder, view_region_from_span, filter_enclosing, shorten_module_prefixes
 from response import parse_source_errors, parse_exp_types
 
 class Win:
@@ -49,7 +49,7 @@ class Win:
                 view.set_status("type_at_cursor", _type)
                 view.add_regions("type_at_cursor", [view_region_from_span(view, span)], "storage.type", "", sublime.DRAW_OUTLINED)
                 if Win.show_popup:
-                    view.show_popup(shorten_module_prefix(_type))
+                    view.show_popup(shorten_module_prefixes(_type))
                 return
 
         # Clear type-at-cursor display     
@@ -137,5 +137,3 @@ class Win:
         for view in self.window.views():
             view.add_regions("errors", error_regions_by_view_id.get(view.id(), []), "invalid", "dot", sublime.DRAW_OUTLINED)
             view.add_regions("warnings", warning_regions_by_view_id.get(view.id(), []), "comment", "dot", sublime.DRAW_OUTLINED)
-
-

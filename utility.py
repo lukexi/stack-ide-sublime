@@ -72,6 +72,10 @@ def within(smaller, larger):
 def filter_enclosing(view, region, span_pairs):
     return ((item, span) for item, span in span_pairs if within(region, view_region_from_span(view, span)))
 
+def shorten_module_prefixes(type_with_prefixes):
+    words = type_with_prefixes.replace("(", " ( ").replace("[", " [ ").split(' ')
+    return (" ".join(map(shorten_module_prefix, words)).replace(" ( ","(").replace(" [ ","["))
+
 def shorten_module_prefix(prefixed_type):
     words = prefixed_type.split('.')
     if (len(words) > 1):
