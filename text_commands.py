@@ -37,8 +37,9 @@ class ShowHsTypeAtCursorCommand(sublime_plugin.TextCommand):
     def _handle_response(self,response):
         type_spans = list(parse_exp_types(response))
         if type_spans:
-            _type = next(filter_enclosing(self.view, self.view.sel()[0], type_spans), None)
-            if not _type is None:
+            type_span = next(filter_enclosing(self.view, self.view.sel()[0], type_spans), None)
+            if type_span is not None:
+                _type, span = type_span
                 self.view.show_popup(_type)
 
 
