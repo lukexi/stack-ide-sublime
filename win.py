@@ -53,9 +53,9 @@ class Win:
                     view.show_popup(format_type(_type), on_navigate= (lambda href: webbrowser.open(href)))
                 return
 
-        # Clear type-at-cursor display     
-        for view in self.window.views():       
-            view.set_status("type_at_cursor", "")      
+        # Clear type-at-cursor display
+        for view in self.window.views():
+            view.set_status("type_at_cursor", "")
             view.add_regions("type_at_cursor", [], "storage.type", "", sublime.DRAW_OUTLINED)
 
 
