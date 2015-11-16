@@ -73,8 +73,8 @@ def filter_enclosing(view, region, span_pairs):
     return ((item, span) for item, span in span_pairs if within(region, view_region_from_span(view, span)))
 
 def format_type(raw_type):
-    words = raw_type.replace("(", " ( ").replace("[", " [ ").split(' ')
-    return (" ".join(map(format_subtype, words)).replace(" ( ","(").replace(" [ ","["))
+    words = raw_type.replace("(", " ( ").replace(")", " ) ").replace("[", " [ ").replace("]", " ] ").replace(",", " , ").split(' ')
+    return (" ".join(map(format_subtype, words)).replace(" ( ","(").replace(" ) ",")").replace(" [ ","[").replace(" ] ","]").replace(" , ",","))
 
 def format_subtype(type_string):
     # See documentation about popups here:
