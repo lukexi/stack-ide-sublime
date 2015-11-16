@@ -50,7 +50,7 @@ class Win:
                 view.set_status("type_at_cursor", _type)
                 view.add_regions("type_at_cursor", [view_region_from_span(view, span)], "storage.type", "", sublime.DRAW_OUTLINED)
                 if Win.show_popup:
-                    view.show_popup(format_type(_type), on_navigate= (lambda href: webbrowser.open(href)))
+                    view.show_popup(format_type(_type), on_navigate= (lambda href: webbrowser.open(Win.hoogle_url + href)))
                 return
 
         # Clear type-at-cursor display

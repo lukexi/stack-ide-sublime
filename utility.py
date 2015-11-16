@@ -73,8 +73,8 @@ def filter_enclosing(view, region, span_pairs):
     return ((item, span) for item, span in span_pairs if within(region, view_region_from_span(view, span)))
 
 def format_type(raw_type):
-    words = raw_type.replace("(", " ( ").replace("[", " [ ").split(' ')
-    return (" ".join(map(format_subtype, words)).replace(" ( ","(").replace(" [ ","["))
+    words = raw_type.replace("(", " ( ").replace(")", " ) ").replace("[", " [ ").replace("]", " ] ").replace(",", " , ").split(' ')
+    return (" ".join(map(format_subtype, words)).replace(" ( ","(").replace(" ) ",")").replace(" [ ","[").replace(" ] ","]").replace(" , ",","))
 
 def format_subtype(type_string):
     # See documentation about popups here:
@@ -91,12 +91,12 @@ def format_subtype(type_string):
 
     if s == "->":
         return ('<span style="color: blue">{0}</span>'.format("->"))
-    elif s == "(" or s == ")" or s == "[" or s == "]" or s=='':
+    elif s == "(" or s == ")" or s == "[" or s == "'" or s == "]" or s=='' or s==',':
         return s
     elif (s[0] != '_' and s[0].islower()):
         return ('<span style="color: #4C4C4C">{0}</span>'.format(s))
     else:
-        return ('<a href="http://www.stackage.org/lts/hoogle?q={0}" style="color: #333333">{1}</a>'.format(type_string, s))
+        return ('<a href="{0}" style="color: #333333">{1}</a>'.format(type_string.split(":")[-1], s))
 
 def is_haskell_view(view):
     return view.match_selector(view.sel()[0].begin(), "source.haskell")

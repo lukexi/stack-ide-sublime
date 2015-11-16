@@ -9,4 +9,11 @@
   // If "show_popup" is true, a popup will appear right below selection
   // to show the type in addition to the text shown in the status bar
   ,"show_popup": false
+
+  // if show_popup is true, clicking on types displayed in the popup panel will
+  // open a web-browser at specified hoogle_url with the right type query.
+  // if you set this to your own hoogle webserver setup for your project,
+  // you'll be able to see the documentation for your own type
+  // example: "hoogle_url": "https://www.google.fr/search?q=what+is+haskell+"
+  ,"hoogle_url": "http://www.stackage.org/lts/hoogle?q="
 }
