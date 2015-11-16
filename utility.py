@@ -91,7 +91,7 @@ def format_subtype(type_string):
 
     if s == "->":
         return ('<span style="color: blue">{0}</span>'.format("->"))
-    elif s == "(" or s == ")" or s == "[" or s == "]" or s=='':
+    elif s == "(" or s == ")" or s == "[" or s == "'" or s == "]" or s=='' or s==',':
         return s
     elif (s[0] != '_' and s[0].islower()):
         return ('<span style="color: #4C4C4C">{0}</span>'.format(s))
