@@ -27,6 +27,7 @@ def plugin_loaded():
     Log._set_verbosity(settings.verbosity)
     StackIDEManager.configure(settings)
     Win.show_popup = settings.show_popup
+    Win.hoogle_url = settings.hoogle_url
     watchdog = StackIDEWatchdog()
 
 def plugin_unloaded():
@@ -43,7 +44,8 @@ def load_settings():
     return Settings(
         settings_obj.get('verbosity', 'normal'),
         add_to_path if isinstance(add_to_path, list) else [],
-        settings_obj.get('show_popup', False)
+        settings_obj.get('show_popup', False),
+        settings_obj.get('hoogle_url', "http://www.stackage.org/lts/hoogle?q=")
     )
 
 def on_settings_changed():
@@ -58,6 +60,8 @@ def on_settings_changed():
         StackIDEManager.reset()
     elif updated_settings.show_popup != settings.show_popup:
         Win.show_popup = updated_settings.show_popup
+    elif updated_settings.hoogle_url != settings.hoogle_url:
+        Win.hoogle_url = updated_settings.hoogle_url
 
     settings = updated_settings
 

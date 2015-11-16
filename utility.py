@@ -96,7 +96,7 @@ def format_subtype(type_string):
     elif (s[0] != '_' and s[0].islower()):
         return ('<span style="color: #4C4C4C">{0}</span>'.format(s))
     else:
-        return ('<a href="http://www.stackage.org/lts/hoogle?q={0}" style="color: #333333">{1}</a>'.format(type_string.split(":")[-1], s))
+        return ('<a href="{0}" style="color: #333333">{1}</a>'.format(type_string.split(":")[-1], s))
 
 def is_haskell_view(view):
     return view.match_selector(view.sel()[0].begin(), "source.haskell")
