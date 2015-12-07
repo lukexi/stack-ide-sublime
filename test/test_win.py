@@ -44,7 +44,6 @@ class WinTests(unittest.TestCase):
 
         # panel recreated
         window.create_output_panel.assert_called_with("hide_errors")
-        panel.settings().set.assert_called_with("result_file_regex", "^(..[^:]*):([0-9]+):?([0-9]+)?:? (.*)$")
         window.run_command.assert_any_call("hide_panel",  {"panel": "output.hide_errors"})
         panel.run_command.assert_called_with("clear_error_panel")
         panel.set_read_only.assert_any_call(False)
@@ -75,7 +74,6 @@ class WinTests(unittest.TestCase):
 
         # panel recreated
         window.create_output_panel.assert_called_with("hide_errors")
-        panel.settings().set.assert_called_with("result_file_regex", "^(..[^:]*):([0-9]+):?([0-9]+)?:? (.*)$")
         window.run_command.assert_any_call("hide_panel",  {"panel": "output.hide_errors"})
         # panel.run_command.assert_any_call("clear_error_panel")
         panel.set_read_only.assert_any_call(False)
@@ -110,7 +108,6 @@ class WinTests(unittest.TestCase):
 
         # panel recreated
         window.create_output_panel.assert_called_with("hide_errors")
-        panel.settings().set.assert_called_with("result_file_regex", "^(..[^:]*):([0-9]+):?([0-9]+)?:? (.*)$")
         window.run_command.assert_any_call("hide_panel",  {"panel": "output.hide_errors"})
         # panel.run_command.assert_any_call("clear_error_panel")
         panel.set_read_only.assert_any_call(False)
