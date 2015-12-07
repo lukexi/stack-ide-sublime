@@ -30,27 +30,5 @@
 			</dict>
 		</array>
 	</dict>
-	<key>uuid</key>
-	<string>E3994307-4D9E-44D6-832E-52C244F1CDF3</string>
-</dict>
-<dict>
-	<key>name</key>
-	<string>Comments</string>
-	<key>scope</key>
-	<string>source.cabal</string>
-	<key>settings</key>
-	<dict>
-		<key>shellVariables</key>
-		<array>
-			<dict>
-				<key>name</key>
-				<string>TM_COMMENT_START</string>
-				<key>value</key>
-				<string>-- </string>
-			</dict>
-		</array>
-	</dict>
-	<key>uuid</key>
-	<string>22F622A3-4F1D-4D66-999F-10D42FBFFC4D</string>
 </dict>
 </plist>
