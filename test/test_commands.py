@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import MagicMock, Mock, ANY
 import stack_ide as stackide
 from .mocks import cur_dir, default_mock_window, setup_fake_backend
-from text_commands import ClearErrorPanelCommand, UpdateErrorPanelCommand, ShowHsTypeAtCursorCommand, ShowHsInfoAtCursorCommand, CopyHsTypeAtCursorCommand, GotoDefinitionAtCursorCommand
+from text_commands import ClearErrorPanelCommand, AppendToErrorPanelCommand, ShowHsTypeAtCursorCommand, ShowHsInfoAtCursorCommand, CopyHsTypeAtCursorCommand, GotoDefinitionAtCursorCommand
 from .stubs import sublime
 from .data import type_info, someFunc_span_info, putStrLn_span_info
 
@@ -19,7 +19,7 @@ class CommandTests(unittest.TestCase):
         cmd.view.erase.assert_called_with(ANY, ANY)
 
     def test_can_update_panel(self):
-        cmd = UpdateErrorPanelCommand()
+        cmd = AppendToErrorPanelCommand()
         cmd.view = MagicMock()
         cmd.view.size = Mock(return_value=0)
         cmd.run(None, 'message')

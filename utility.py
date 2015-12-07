@@ -61,7 +61,7 @@ def relative_view_file_name(view):
     """
     ide-backend expects file names as relative to the cabal project root
     """
-    return view.file_name().replace(first_folder(view.window()) + "/", "")
+    return view.file_name().replace(first_folder(view.window()) + os.path.sep, "")
 
 def span_from_view_selection(view):
     return span_from_view_region(view, view.sel()[0])

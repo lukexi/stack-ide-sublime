@@ -18,9 +18,9 @@ class ClearErrorPanelCommand(sublime_plugin.TextCommand):
     def run(self, edit):
         self.view.erase(edit, sublime.Region(0, self.view.size()))
 
-class UpdateErrorPanelCommand(sublime_plugin.TextCommand):
+class AppendToErrorPanelCommand(sublime_plugin.TextCommand):
     """
-    An update_error_panel command to append text to the error panel.
+    An append_to_error_panel command to append text to the error panel.
     """
     def run(self, edit, message):
         self.view.insert(edit, self.view.size(), message + "\n\n")

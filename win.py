@@ -69,7 +69,7 @@ class Win:
         # TODO: we should pass the errorKind too if the error has no span
         error_panel = self.reset_error_panel()
         for error in errors:
-            error_panel.run_command("update_error_panel", {"message": repr(error)})
+            error_panel.run_command("append_to_error_panel", {"message": repr(error)})
 
         if errors:
             self.show_error_panel()
@@ -104,8 +104,11 @@ class Win:
         panel.set_read_only(False)
 
         # This turns on double-clickable error/warning messages in the error panel
-        # using a regex that looks for the form file_name:line:column
+        # using a regex that looks for the form file_name:line:column: error_message
+        # The error_message could be improved as currently it says KindWarning: or KindError:
+        # Perhaps grabbing the next line? Or the whole message?
         panel.settings().set("result_file_regex", "^(..[^:]*):([0-9]+):?([0-9]+)?:? (.*)$")
+        panel.settings().set("result_base_dir", first_folder(self.window))
 
         # Seems to force the panel to refresh after we clear it:
         self.hide_error_panel()

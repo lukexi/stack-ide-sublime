@@ -81,8 +81,8 @@ class WinTests(unittest.TestCase):
         panel.set_read_only.assert_any_call(False)
 
         # panel should have received two messages
-        panel.run_command.assert_any_call("update_error_panel", {"message": "src/Main.hs:1:1: KindError:\n<error message here>"})
-        panel.run_command.assert_any_call("update_error_panel", {"message": "src/Main.hs:1:1: KindWarning:\n<warning message here>"})
+        panel.run_command.assert_any_call("append_to_error_panel", {"message": "src/Main.hs:1:1: KindError:\n<error message here>"})
+        panel.run_command.assert_any_call("append_to_error_panel", {"message": "src/Main.hs:1:1: KindWarning:\n<warning message here>"})
 
         # regions added
         view.add_regions.assert_called_with("warnings", [ANY], "comment", "dot", sublime.DRAW_OUTLINED)
@@ -116,7 +116,7 @@ class WinTests(unittest.TestCase):
         panel.set_read_only.assert_any_call(False)
 
         # panel should have received two messages
-        panel.run_command.assert_any_call("update_error_panel", {"message": "src/Lib.hs:1:1: KindError:\n<error message here>"})
+        panel.run_command.assert_any_call("append_to_error_panel", {"message": "src/Lib.hs:1:1: KindError:\n<error message here>"})
 
         # regions added
         view.add_regions.assert_called_with("warnings", [], "comment", "dot", sublime.DRAW_OUTLINED)
