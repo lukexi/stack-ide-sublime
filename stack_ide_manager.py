@@ -136,7 +136,6 @@ class StackIDEManager:
     def kill_all(cls):
         # Log.normal("Killing all stack-ide-sublime instances:", {k:str(v) for k, v in StackIDEManager.ide_backend_instances.items()})
         for instance in StackIDEManager.ide_backend_instances.values():
-            print("yo")
             instance.end()
 
     @classmethod

@@ -92,6 +92,7 @@ class StackIDE:
         """
         Ask stack-ide to shut down.
         """
+        Win(self.window).hide_error_panel()
         self.send_request(Req.get_shutdown())
         self.die()
 

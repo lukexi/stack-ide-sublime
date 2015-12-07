@@ -72,9 +72,9 @@ class Win:
             error_panel.run_command("update_error_panel", {"message": repr(error)})
 
         if errors:
-            self.window.run_command("show_panel", {"panel":"output.hide_errors"})
+            self.show_error_panel()
         else:
-            self.window.run_command("hide_panel", {"panel":"output.hide_errors"})
+            self.hide_error_panel()
 
         error_panel.set_read_only(True)
 
@@ -108,7 +108,7 @@ class Win:
         panel.settings().set("result_file_regex", "^(..[^:]*):([0-9]+):?([0-9]+)?:? (.*)$")
 
         # Seems to force the panel to refresh after we clear it:
-        self.window.run_command("hide_panel", {"panel": "output.hide_errors"})
+        self.hide_error_panel()
 
         # Clear the panel. TODO: should be unnecessary? https://www.sublimetext.com/forum/viewtopic.php?f=6&t=2044
         panel.run_command("clear_error_panel")
@@ -116,6 +116,11 @@ class Win:
         # TODO store the panel somewhere so we can reuse it.
         return panel
 
+    def hide_error_panel(self):
+        self.window.run_command("hide_panel", {"panel": "output.hide_errors"})
+
+    def show_error_panel(self):
+        self.window.run_command("show_panel", {"panel":"output.hide_errors"})
 
     def highlight_errors(self, errors):
         """
