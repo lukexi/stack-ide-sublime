@@ -13,6 +13,7 @@ def mock_window(paths=[]):
     window = MagicMock()
     window.folders = Mock(return_value=paths)
     window.id = Mock(return_value=1234)
+    window.run_command = Mock(return_value=None)
     return window
 
 def mock_view(file_path, window):
