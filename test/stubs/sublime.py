@@ -41,7 +41,7 @@ class FakeWindow():
     def folders(self):
         return self._folders
 
-    def run_command(command, args):
+    def run_command(self, command, args):
         pass
 
     # def create_output_panel():
